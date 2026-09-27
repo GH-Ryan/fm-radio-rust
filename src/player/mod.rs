@@ -136,8 +136,8 @@ impl Player {
         let volume = self.volume.clone();
         let on_change = self.on_change.clone();
 
+        let mine = *generation.lock().unwrap();
         let handle = thread::spawn(move || {
-            let mine = *generation.lock().unwrap();
             let result = Self::run_playback(
                 stream_url,
                 state.clone(),
@@ -166,7 +166,10 @@ impl Player {
                     cb(state.clone());
                 }
             }
-            *stream_handle.lock().unwrap() = None;
+            let mut slot = stream_handle.lock().unwrap();
+            if slot.as_ref().is_some_and(|h| h.thread().id() == std::thread::current().id()) {
+                *slot = None;
+            }
         });
 
         *self.stream_handle.lock().unwrap() = Some(handle);
@@ -567,6 +570,11 @@ unsafe impl Sync for Player {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write as _;
+    use std::net::TcpListener;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::mpsc;
+    use std::time::Instant;
 
     fn station(name: &str, url: &str) -> Station {
         Station {
@@ -577,6 +585,172 @@ mod tests {
         }
     }
 
+    /// A local server that sends headers and then trickles bytes for as long as
+    /// the test needs. Nothing here reaches the network, and the body never ends,
+    /// the way a station's does not.
+    struct SlowStream {
+        url: String,
+        stop: Arc<AtomicBool>,
+    }
+
+    impl SlowStream {
+        fn start(name: &str) -> Self {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let url = format!("http://{}/{name}", listener.local_addr().unwrap());
+            let stop = Arc::new(AtomicBool::new(false));
+            let flag = stop.clone();
+
+            std::thread::spawn(move || {
+                for stream in listener.incoming() {
+                    if flag.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    let Ok(mut conn) = stream else { continue };
+                    let stop_for_conn = flag.clone();
+                    std::thread::spawn(move || {
+                        let _ = conn.write_all(
+                            b"HTTP/1.1 200 OK\r\nContent-Type: audio/mpeg\r\n\r\n",
+                        );
+                        let _ = conn.flush();
+                        while !stop_for_conn.load(Ordering::Relaxed) {
+                            if conn.write_all(&[0u8; 64]).is_err() {
+                                break;
+                            }
+                            let _ = conn.flush();
+                            std::thread::sleep(Duration::from_millis(5));
+                        }
+                    });
+                }
+            });
+
+            SlowStream { url, stop }
+        }
+    }
+
+    impl Drop for SlowStream {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::Relaxed);
+        }
+    }
+
+    fn eventually(check: impl Fn() -> bool) -> bool {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            if check() {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        check()
+    }
+
+    #[test]
+    fn switching_stations_leaves_the_new_one_playing() {
+        let a = SlowStream::start("a");
+        let b = SlowStream::start("b");
+        let p = Player::new();
+
+        p.play(station("A", &a.url)).unwrap();
+        p.play(station("B", &b.url)).unwrap();
+
+        // Whichever order the two decode threads finish in, the panel must name
+        // the station that was asked for last.
+        let ok = eventually(|| p.state().station.as_ref().map(|s| s.name.as_str()) == Some("B"));
+        assert!(ok, "player ended up on {:?}", p.state().station.map(|s| s.name));
+    }
+
+    #[test]
+    fn a_superseded_thread_cannot_report_its_own_failure() {
+        // The first stream is refused outright, so its thread fails at once and
+        // would normally stamp its error over whatever is playing now.
+        let refused = "http://127.0.0.1:1/nothing.mp3";
+        let live = SlowStream::start("live");
+        let (tx, rx) = mpsc::channel();
+        let p = Player::new();
+        p.set_on_change(move |s| {
+            let _ = tx.send(s.station.map(|st| st.name));
+        });
+
+        p.play(station("DEAD", refused)).unwrap();
+        p.play(station("LIVE", &live.url)).unwrap();
+
+        // Both play() calls report synchronously, and naming the station the
+        // user just picked is correct. Only what arrives afterwards is the
+        // retired thread talking, and it has nothing to say.
+        while rx.try_recv().is_ok() {}
+
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while Instant::now() < deadline {
+            if let Ok(Some(name)) = rx.try_recv() {
+                assert_ne!(
+                    name, "DEAD",
+                    "a retired thread reported state for the station it was replaced for"
+                );
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    /// A thread left in the handle slot cannot be cancelled.
+    ///
+    /// This passes with or without the id check, because `stop` already takes
+    /// the slot; the check guards the case where an older thread outlives a newer
+    /// one and would otherwise clear the newer one's entry.
+    #[test]
+    fn every_started_stream_is_eventually_retired() {
+        let a = SlowStream::start("a");
+        let p = Player::new();
+        p.play(station("A", &a.url)).unwrap();
+        assert!(eventually(|| p.state().playing));
+        p.stop();
+        let empty = eventually(|| p.stream_handle.lock().unwrap().is_none());
+        assert!(empty, "a decode thread was left tracked after a stop");
+    }
+
+    #[test]
+    fn stopping_ends_playback_and_the_panel_stays_readable() {
+        let s = SlowStream::start("s");
+        let p = Player::new();
+        p.play(station("S", &s.url)).unwrap();
+        assert!(eventually(|| p.state().playing));
+
+        p.stop();
+        let after = p.state();
+        assert!(!after.playing, "still playing after a stop");
+        assert!(!after.paused);
+        assert!(after.playing_key.is_none());
+        // The panel keeps naming the station, so the play button can restart it.
+        assert_eq!(after.station.map(|x| x.name), Some("S".to_string()));
+        assert!(after.error.is_none());
+    }
+
+    #[test]
+    fn a_stopped_player_can_be_started_again() {
+        let a = SlowStream::start("a");
+        let p = Player::new();
+        p.play(station("A", &a.url)).unwrap();
+        assert!(eventually(|| p.state().playing));
+        p.stop();
+        p.play(station("A", &a.url)).unwrap();
+        assert!(eventually(|| p.state().playing), "restarting after a stop did not take");
+    }
+
+    #[test]
+    fn pausing_and_resuming_do_not_lose_the_station() {
+        let s = SlowStream::start("s");
+        let p = Player::new();
+        p.play(station("S", &s.url)).unwrap();
+        assert!(eventually(|| p.state().playing));
+
+        p.pause().unwrap();
+        assert!(p.state().paused);
+        assert_eq!(p.state().station.map(|x| x.name), Some("S".to_string()));
+
+        p.resume().unwrap();
+        assert!(!p.state().paused);
+        assert!(p.state().playing);
+    }
+
     #[test]
     fn toggling_with_nothing_loaded_reports_it() {
         let p = Player::new();
@@ -585,12 +759,11 @@ mod tests {
 
     #[test]
     fn toggling_starts_the_restored_station() {
+        let s = SlowStream::start("r");
         let p = Player::new();
-        p.restore(station("R", "http://127.0.0.1:1/never.mp3"));
-        // Nothing is running, yet the panel names a station, so the button
-        // starts it rather than reporting that there is nothing to play.
+        p.restore(station("R", &s.url));
         let _ = p.play_pause();
-        assert!(p.state().playing || p.state().error.is_some());
+        assert!(eventually(|| p.state().playing), "the restored station was not started");
     }
 
     #[test]
@@ -616,16 +789,5 @@ mod tests {
         let p = Player::new();
         p.set_volume(0.25);
         assert_eq!(p.state().volume, 0.25);
-    }
-
-    #[test]
-    fn stopping_clears_playback_but_keeps_the_station_on_screen() {
-        let p = Player::new();
-        p.restore(station("R", "http://127.0.0.1:1/never.mp3"));
-        p.stop();
-        let s = p.state();
-        assert!(!s.playing && !s.paused);
-        assert!(s.station.is_some(), "the panel went blank after a stop");
-        assert!(s.playing_key.is_none(), "a stopped station still claims to be playing");
     }
 }
