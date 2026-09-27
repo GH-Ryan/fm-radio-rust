@@ -5,24 +5,43 @@ edition = "2021"
 
 [dependencies]
 tauri = { version = "2", features = [] }
-tauri-plugin-store = "2"
-tauri-plugin-opener = "2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-reqwest = { version = "0.12", features = ["json", "rustls-tls", "blocking"] }
-tokio = { version = "1.0", features = ["full"] }
-rodio = { version = "0.19", features = ["default"] }
-symphonia = { version = "0.5", features = ["mp3", "vorbis", "flac", "wav", "aac"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
+tokio = { version = "1.0", features = ["sync"] }
+# Decoding is done by symphonia directly, so rodio only needs its output
+# backend and Sink. Its default features would add claxon plus a second full
+# symphonia codec bundle that nothing here calls into.
+rodio = { version = "0.19", default-features = false }
+# Container and codec are separate features, and you need both: `vorbis` is
+# only the decoder, `ogg` is the demuxer that feeds it. Dropping `ogg` while
+# keeping `vorbis` still builds and still sniffs Ogg streams, but there is then
+# no demuxer to hand them to and every Ogg station fails at open time.
+# `wav` needs the pcm decoder to read its samples. adpcm and mkv are left out
+# on purpose: sniff never names them, so nothing can route to them.
+symphonia = { version = "0.5", default-features = false,
+              features = ["mp3", "aac", "flac", "vorbis", "ogg", "wav", "pcm"] }
 dirs = "5.0"
-once_cell = "1.19"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# env-filter is not needed: main only calls fmt::init(), and it would drag in
+# regex-automata and the matchers machinery.
+tracing-subscriber = "0.3"
 thiserror = "1.0"
 url = "2.5"
 fastrand = "2.0"
 
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+
+[profile.release]
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
 
 [[bin]]
 name = "fm-radio"

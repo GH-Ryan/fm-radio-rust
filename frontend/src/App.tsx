@@ -6,7 +6,7 @@ import { Titlebar } from './components/Titlebar'
 import { StationGrid } from './components/StationGrid'
 import { PlayerBar } from './components/PlayerBar'
 import { Toast } from './components/Toast'
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import './styles/index.css'
 
 interface AppState {
@@ -118,29 +118,6 @@ function App() {
       })
     } catch (e) {
       showError(`操作失败: ${e}`)
-    }
-  }, [showError])
-
-  // Clearing empties the store outright and there is no undo, so it is asked for
-  // twice. The second click is only counted while the prompt is still up, so
-  // leaving it on screen cannot leave a trap where the next click wipes the list.
-  const [confirmingClear, setConfirmingClear] = useState(false)
-  const confirmTimer = useRef<number | undefined>(undefined)
-
-  const askClear = useCallback(() => {
-    setConfirmingClear(true)
-    window.clearTimeout(confirmTimer.current)
-    confirmTimer.current = window.setTimeout(() => setConfirmingClear(false), 4000)
-  }, [])
-
-  const clearFavorites = useCallback(async () => {
-    setConfirmingClear(false)
-    window.clearTimeout(confirmTimer.current)
-    try {
-      await invoke('clear_favorites')
-      setState(s => ({ ...s, favorites: [] }))
-    } catch (e) {
-      showError(`清空失败: ${e}`)
     }
   }, [showError])
 
@@ -298,34 +275,21 @@ function App() {
   useEffect(() => () => {
     window.clearTimeout(searchTimer.current)
     window.clearTimeout(favTimer.current)
-    window.clearTimeout(confirmTimer.current)
     window.clearTimeout(errorTimer.current)
   }, [])
 
 
   const handleClose = useCallback(async () => {
     try {
-      const win = await WebviewWindow.getByLabel('main')
-      if (!win) throw new Error('找不到窗口')
-      await win.close()
+      await getCurrentWindow().close()
     } catch (e) {
       showError(`关闭失败: ${e}`)
     }
   }, [showError])
 
-  const handleMinimize = useCallback(async () => {
-    try {
-      const win = await WebviewWindow.getByLabel('main')
-      if (!win) throw new Error('找不到窗口')
-      await win.minimize()
-    } catch (e) {
-      showError(`最小化失败: ${e}`)
-    }
-  }, [showError])
-
   return (
     <div className="app">
-      <Titlebar onClose={handleClose} onMinimize={handleMinimize} />
+      <Titlebar onClose={handleClose} />
       <div className="main">
         <div className="content">
           <main className="content-body">
@@ -404,22 +368,6 @@ function App() {
                       onKeyDown={handleFavKey}
                     />
                   </div>
-                  {state.favorites.length > 0 && (confirmingClear ? (
-                      <button
-                        className="btn btn-danger"
-                        onClick={clearFavorites}
-                        onBlur={() => setConfirmingClear(false)}
-                        title="再次点击以确认清空"
-                      >
-                        确认清空？
-                      </button>
-                    ) : (
-                      <button className="btn" onClick={askClear} title="清空收藏">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="15" height="15">
-                          <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
-                        </svg>
-                      </button>
-                  ))}
                 </div>
               </div>
               <div className="panel-body-inner" hidden={collapsed.favorites}>

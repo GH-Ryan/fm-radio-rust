@@ -1,23 +1,35 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-pub mod radio;
-pub mod player;
-pub mod store;
 pub mod commands;
+pub mod player;
+pub mod radio;
+pub mod store;
 
-use std::sync::Arc;
-use tokio::sync::Mutex as TMutex;
-use tauri::{Emitter, Manager};
+use crate::commands::AppState;
 use crate::player::Player;
 use crate::store::{FavoritesStore, LastStationStore};
-use crate::commands::AppState;
+use std::sync::Arc;
+use tauri::{Emitter, Manager};
+use tokio::sync::Mutex as TMutex;
 
 fn main() {
+    // The DMABUF renderer hands framebuffers to Mesa through EGL, and tearing
+    // that down as the web process exits corrupts the heap: glibc's free()
+    // then walks a chunk whose fd pointer is garbage and segfaults, which shows
+    // up seconds after the window closes as a WebKitWebProcess core dump.
+    // Rendering through a shared-memory path instead avoids touching that
+    // teardown. Must be set before the web process is spawned; the child
+    // inherits our environment. Setting the variable to 0 restores DMABUF.
+    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
+
     tracing_subscriber::fmt::init();
 
     let player = Arc::new(Player::new());
     let favorites = Arc::new(FavoritesStore::new().expect("Failed to create favorites store"));
-    let last_station = Arc::new(LastStationStore::new().expect("Failed to create last station store"));
+    let last_station =
+        Arc::new(LastStationStore::new().expect("Failed to create last station store"));
     let client = Arc::new(radio::RadioClient::new().expect("Failed to create radio client"));
 
     if let Ok((station, _)) = last_station.get() {
@@ -35,8 +47,6 @@ fn main() {
     };
 
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_store::Builder::new().build())
-        .plugin(tauri_plugin_opener::init())
         .manage(state)
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
@@ -67,7 +77,6 @@ fn main() {
             commands::search_stations,
             commands::get_favorites,
             commands::toggle_favorite,
-            commands::clear_favorites,
             commands::play_station,
             commands::play_pause,
             commands::stop_playback,
@@ -78,7 +87,7 @@ fn main() {
         .build(tauri::generate_context!());
     match app {
         Ok(app) => {
-            let _ = app.run(|_handle, _event| {});
+            app.run(|_handle, _event| {});
         }
         Err(e) => eprintln!("启动失败: {e}"),
     }

@@ -1,12 +1,12 @@
+use crate::radio::Station;
 use rodio::{OutputStream, Sink};
 use std::io::{BufReader, Read};
-use symphonia::core::io::MediaSourceStream;
-use symphonia::core::probe::Hint;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use symphonia::core::io::MediaSourceStream;
+use symphonia::core::probe::Hint;
 use thiserror::Error;
-use crate::radio::Station;
 
 #[derive(Error, Debug)]
 pub enum PlayerError {
@@ -55,6 +55,12 @@ pub struct Player {
     generation: Arc<Mutex<u64>>,
     on_change: Arc<Mutex<Option<StateCallback>>>,
     volume: Arc<Mutex<f32>>,
+}
+
+impl Default for Player {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Player {
@@ -113,7 +119,9 @@ impl Player {
 
         let stream_url = station.stream_url.clone();
         if stream_url.trim().is_empty() {
-            return Err(PlayerError::UnsupportedFormat("该电台缺少播放地址".to_string()));
+            return Err(PlayerError::UnsupportedFormat(
+                "该电台缺少播放地址".to_string(),
+            ));
         }
 
         {
@@ -167,7 +175,10 @@ impl Player {
                 }
             }
             let mut slot = stream_handle.lock().unwrap();
-            if slot.as_ref().is_some_and(|h| h.thread().id() == std::thread::current().id()) {
+            if slot
+                .as_ref()
+                .is_some_and(|h| h.thread().id() == std::thread::current().id())
+            {
                 *slot = None;
             }
         });
@@ -200,10 +211,14 @@ impl Player {
         let response = request.send()?;
 
         if !response.status().is_success() {
-            return Err(PlayerError::ConnectionFailed(format!("服务器返回 HTTP {}", response.status())));
+            return Err(PlayerError::ConnectionFailed(format!(
+                "服务器返回 HTTP {}",
+                response.status()
+            )));
         }
 
-        let content_type = response.headers()
+        let content_type = response
+            .headers()
             .get("content-type")
             .and_then(|v| v.to_str().ok())
             .unwrap_or("")
@@ -264,13 +279,15 @@ impl Player {
                 &symphonia::core::meta::MetadataOptions::default(),
             )
             .map_err(|_| {
-                PlayerError::UnsupportedFormat("该电台的音频格式无法识别，本应用无法解码".to_string())
+                PlayerError::UnsupportedFormat(
+                    "该电台的音频格式无法识别，本应用无法解码".to_string(),
+                )
             })?;
 
         let mut format = probed.format;
-        let track = format.default_track().ok_or_else(|| {
-            PlayerError::UnsupportedFormat("该电台没有可播放的音轨".to_string())
-        })?;
+        let track = format
+            .default_track()
+            .ok_or_else(|| PlayerError::UnsupportedFormat("该电台没有可播放的音轨".to_string()))?;
         let track_id = track.id;
         let sample_rate = track.codec_params.sample_rate.unwrap_or(44_100).max(8_000);
         let mut decoder = symphonia::default::get_codecs()
@@ -312,7 +329,10 @@ impl Player {
                 // returns, which is what lets a stop take effect.
                 Err(symphonia::core::errors::Error::IoError(ref e))
                     if e.kind() == std::io::ErrorKind::WouldBlock
-                        || e.kind() == std::io::ErrorKind::TimedOut => continue,
+                        || e.kind() == std::io::ErrorKind::TimedOut =>
+                {
+                    continue
+                }
                 Err(e) => return Err(PlayerError::DecodeError(format!("读取音频数据失败：{}", e))),
             };
 
@@ -323,7 +343,7 @@ impl Player {
             match decoder.decode(&packet) {
                 Ok(decoded) => {
                     let spec = *decoded.spec();
-                    let channels = (spec.channels.count().min(2) as usize).max(1);
+                    let channels = spec.channels.count().clamp(1, 2);
                     let mut sb = symphonia::core::audio::SampleBuffer::<f32>::new(
                         decoded.capacity() as u64,
                         spec,
@@ -346,7 +366,11 @@ impl Player {
                 let vol = *volume.lock().unwrap();
                 let block: Vec<f32> = pcm.drain(..).map(|s| s * vol).collect();
                 if let Some(sink) = &*sink_arc.lock().unwrap() {
-                    sink.append(rodio::buffer::SamplesBuffer::new(2, sample_rate as u32, block));
+                    sink.append(rodio::buffer::SamplesBuffer::new(
+                        2,
+                        sample_rate as u32,
+                        block,
+                    ));
                 }
             }
         }
@@ -535,11 +559,15 @@ fn icy_title(block: &[u8]) -> String {
             continue;
         }
         let mut value = value.trim();
-        // Stations quote the value and escape embedded quotes as '' or \'.
-        if value.len() >= 2 && value.starts_with('\'') && value.ends_with('\'') {
-            value = &value[1..value.len() - 1];
+        // Stations quote the value and escape embedded quotes as \'.
+        // An opening quote with nothing after it means the block was cut off
+        // before the title arrived, which is an empty title -- not a title
+        // made of the one quote that survived.
+        if let Some(rest) = value.strip_prefix('\'') {
+            value = rest.strip_suffix('\'').unwrap_or("");
         }
-        return value.replace("\\'", "'").replace("\'", "'").trim().to_string();
+        // \' is just ' in a Rust literal, so only the \\' escape needs stripping.
+        return value.replace("\\'", "'").trim().to_string();
     }
     String::new()
 }
@@ -561,11 +589,9 @@ impl<R: Read, F: FnMut(String)> Read for IcyReader<R, F> {
     }
 }
 
-// Player needs to be Send + Sync for Tauri state management
-// Since we use thread-based playback and Arc<Mutex<>> for shared state,
-// we can implement Send and Sync manually
-unsafe impl Send for Player {}
-unsafe impl Sync for Player {}
+#[cfg(test)]
+#[path = "format_test.rs"]
+mod format_test;
 
 #[cfg(test)]
 mod tests {
@@ -608,9 +634,8 @@ mod tests {
                     let Ok(mut conn) = stream else { continue };
                     let stop_for_conn = flag.clone();
                     std::thread::spawn(move || {
-                        let _ = conn.write_all(
-                            b"HTTP/1.1 200 OK\r\nContent-Type: audio/mpeg\r\n\r\n",
-                        );
+                        let _ =
+                            conn.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: audio/mpeg\r\n\r\n");
                         let _ = conn.flush();
                         while !stop_for_conn.load(Ordering::Relaxed) {
                             if conn.write_all(&[0u8; 64]).is_err() {
@@ -656,7 +681,11 @@ mod tests {
         // Whichever order the two decode threads finish in, the panel must name
         // the station that was asked for last.
         let ok = eventually(|| p.state().station.as_ref().map(|s| s.name.as_str()) == Some("B"));
-        assert!(ok, "player ended up on {:?}", p.state().station.map(|s| s.name));
+        assert!(
+            ok,
+            "player ended up on {:?}",
+            p.state().station.map(|s| s.name)
+        );
     }
 
     #[test]
@@ -732,7 +761,10 @@ mod tests {
         assert!(eventually(|| p.state().playing));
         p.stop();
         p.play(station("A", &a.url)).unwrap();
-        assert!(eventually(|| p.state().playing), "restarting after a stop did not take");
+        assert!(
+            eventually(|| p.state().playing),
+            "restarting after a stop did not take"
+        );
     }
 
     #[test]
@@ -763,7 +795,10 @@ mod tests {
         let p = Player::new();
         p.restore(station("R", &s.url));
         let _ = p.play_pause();
-        assert!(eventually(|| p.state().playing), "the restored station was not started");
+        assert!(
+            eventually(|| p.state().playing),
+            "the restored station was not started"
+        );
     }
 
     #[test]

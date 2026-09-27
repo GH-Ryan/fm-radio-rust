@@ -69,7 +69,6 @@ pub struct Station {
     pub hls: bool,
     #[serde(rename = "lastcheckok", default, with = "bool_serde")]
     pub last_check_ok: bool,
-
 }
 
 mod bool_serde {
@@ -129,7 +128,7 @@ mod bool_serde {
 mod string_list_serde {
     use serde::{Deserializer, Serializer};
 
-    pub fn serialize<S>(value: &Vec<String>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(value: &[String], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -234,7 +233,11 @@ impl<'de> Deserialize<'de> for Station {
         }
 
         let w = Wire::deserialize(d)?;
-        let name = if w.name.trim().is_empty() { w.stationname } else { w.name };
+        let name = if w.name.trim().is_empty() {
+            w.stationname
+        } else {
+            w.name
+        };
         Ok(Station {
             uuid: w.uuid,
             name,
@@ -332,7 +335,7 @@ impl Server {
         if !url.is_empty() {
             return url.to_string();
         }
-        let name = self.name.trim().trim_end_matches(|c| c == '.' || c == '/');
+        let name = self.name.trim().trim_end_matches(['.', '/']);
         if name.is_empty() {
             return String::new();
         }
@@ -384,7 +387,12 @@ impl RadioClient {
     }
 
     fn primary(&self) -> String {
-        self.mirrors.lock().unwrap().first().cloned().unwrap_or_else(|| DEFAULT_MIRROR.to_string())
+        self.mirrors
+            .lock()
+            .unwrap()
+            .first()
+            .cloned()
+            .unwrap_or_else(|| DEFAULT_MIRROR.to_string())
     }
 
     fn known_mirrors(&self) -> Vec<String> {
@@ -401,7 +409,7 @@ impl RadioClient {
         let fresh = {
             let cached = self.cached_mirrors.lock().unwrap();
             let last = self.last_fetch.lock().unwrap();
-            !cached.is_empty() && last.map_or(false, |t| t.elapsed() < FALLBACK_TTL)
+            !cached.is_empty() && last.is_some_and(|t| t.elapsed() < FALLBACK_TTL)
         };
         if fresh {
             return self.cached_mirrors.lock().unwrap().clone();
@@ -479,7 +487,12 @@ impl RadioClient {
         out
     }
 
-    fn stations(&self, path: &str, params: &mut HashMap<String, String>, query: Query) -> Result<Vec<Station>, RadioError> {
+    fn stations(
+        &self,
+        path: &str,
+        params: &mut HashMap<String, String>,
+        query: Query,
+    ) -> Result<Vec<Station>, RadioError> {
         let mut q = query;
         if q.limit == 0 {
             q.limit = 100;
@@ -522,9 +535,15 @@ impl RadioClient {
         )))
     }
 
-    fn fetch(&self, mirror: &str, path: &str, params: &HashMap<String, String>) -> Result<Vec<Station>, RadioError> {
+    fn fetch(
+        &self,
+        mirror: &str,
+        path: &str,
+        params: &HashMap<String, String>,
+    ) -> Result<Vec<Station>, RadioError> {
         let mut url = Url::parse(&format!("{}{}", mirror.trim_end_matches('/'), path))?;
-        url.query_pairs_mut().extend_pairs(params.iter().map(|(k, v)| (k.as_str(), v.as_str())));
+        url.query_pairs_mut()
+            .extend_pairs(params.iter().map(|(k, v)| (k.as_str(), v.as_str())));
         let resp = self.client.get(url).send()?;
         if !resp.status().is_success() {
             return Err(RadioError::Http(resp.status().as_u16()));
@@ -545,17 +564,25 @@ impl RadioClient {
         if !trimmed.is_empty() {
             params.insert("name".to_string(), trimmed.to_string());
         }
-        self.stations("/json/stations/search", &mut params, Query {
-            limit,
-            order: "clickcount".to_string(),
-            reverse: true,
-        })
+        self.stations(
+            "/json/stations/search",
+            &mut params,
+            Query {
+                limit,
+                order: "clickcount".to_string(),
+                reverse: true,
+            },
+        )
     }
 
     pub fn top(&self, limit: u32) -> Result<Vec<Station>, RadioError> {
         let limit = if limit == 0 { 100 } else { limit };
         let mut params = HashMap::new();
-        self.stations(&format!("/json/stations/topclick/{}", limit), &mut params, Query::default())
+        self.stations(
+            &format!("/json/stations/topclick/{}", limit),
+            &mut params,
+            Query::default(),
+        )
     }
 }
 
@@ -637,10 +664,10 @@ mod tests {
     fn clean_drops_unplayable_and_duplicate_records() {
         let kept = clean(vec![
             station("A", "http://a"),
-            station("A", "http://a"),   // same key
+            station("A", "http://a"), // same key
             station("B", "http://b"),
-            station("", "http://c"),    // no name
-            station("D", "  "),         // no stream
+            station("", "http://c"), // no name
+            station("D", "  "),      // no stream
         ]);
         let names: Vec<_> = kept.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(names, ["A", "B"]);
@@ -660,7 +687,13 @@ mod tests {
 
     #[test]
     fn booleanish_fields_accept_every_shape_the_api_uses() {
-        for (raw, want) in [("true", true), ("false", false), ("1", true), ("0", false), (r#""""#, false)] {
+        for (raw, want) in [
+            ("true", true),
+            ("false", false),
+            ("1", true),
+            ("0", false),
+            (r#""""#, false),
+        ] {
             let json = format!(r#"{{"hls":{raw}}}"#);
             let s: Station = serde_json::from_str(&json).unwrap();
             assert_eq!(s.hls, want, "hls={raw}");

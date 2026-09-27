@@ -14,9 +14,8 @@ pub struct AppState {
     pub search_seq: std::sync::Arc<tokio::sync::Mutex<u32>>,
 }
 
-
-use tauri::State;
 use tauri::async_runtime::spawn_blocking;
+use tauri::State;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -157,14 +156,18 @@ pub async fn top_stations(state: State<'_, AppState>) -> Result<Vec<StationView>
         *pool = stations.clone();
     }
 
-    let views = stations.iter()
+    let views = stations
+        .iter()
         .map(|s| StationView::from_station(s, &state.favorites))
         .collect();
     Ok(views)
 }
 
 #[tauri::command]
-pub async fn search_stations(term: String, state: State<'_, AppState>) -> Result<Vec<StationView>, String> {
+pub async fn search_stations(
+    term: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<StationView>, String> {
     let term = term.trim().to_string();
 
     let current_seq = {
@@ -195,20 +198,20 @@ pub async fn search_stations(term: String, state: State<'_, AppState>) -> Result
         *pool = stations.clone();
     }
 
-    let views = stations.iter()
+    let views = stations
+        .iter()
         .map(|s| StationView::from_station(s, &state.favorites))
         .collect();
     Ok(views)
 }
 
 #[tauri::command]
-pub async fn get_favorites(filter: Option<String>, state: State<'_, AppState>) -> Result<Vec<StationView>, String> {
+pub async fn get_favorites(
+    filter: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<StationView>, String> {
     let stored = state.favorites.list();
-    let needle = filter
-        .as_deref()
-        .unwrap_or_default()
-        .trim()
-        .to_lowercase();
+    let needle = filter.as_deref().unwrap_or_default().trim().to_lowercase();
 
     let filtered: Vec<Station> = if needle.is_empty() {
         stored.clone()
@@ -245,7 +248,10 @@ pub async fn get_favorites(filter: Option<String>, state: State<'_, AppState>) -
 }
 
 #[tauri::command]
-pub async fn toggle_favorite(station: StationView, state: State<'_, AppState>) -> Result<bool, String> {
+pub async fn toggle_favorite(
+    station: StationView,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
     let station_obj = station.to_station();
     let key = station_obj.key();
 
@@ -253,7 +259,10 @@ pub async fn toggle_favorite(station: StationView, state: State<'_, AppState>) -
         state.favorites.remove(&key).map_err(|e| e.to_string())?;
         false
     } else {
-        state.favorites.add(station_obj.clone()).map_err(|e| e.to_string())?;
+        state
+            .favorites
+            .add(station_obj.clone())
+            .map_err(|e| e.to_string())?;
         true
     };
 
@@ -269,14 +278,12 @@ pub async fn toggle_favorite(station: StationView, state: State<'_, AppState>) -
 }
 
 #[tauri::command]
-pub async fn clear_favorites(state: State<'_, AppState>) -> Result<(), String> {
-    state.favorites.clear().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 pub async fn play_station(station: StationView, state: State<'_, AppState>) -> Result<(), String> {
     let station_obj = station.to_station();
-    state.player.play(station_obj.clone()).map_err(|e| e.to_string())?;
+    state
+        .player
+        .play(station_obj.clone())
+        .map_err(|e| e.to_string())?;
     let _ = state.last_station.save(station_obj);
     Ok(())
 }
@@ -305,7 +312,10 @@ pub async fn play_random(list: String, state: State<'_, AppState>) -> Result<(),
     }
 
     let station = pool[fastrand::usize(..pool.len())].clone();
-    state.player.play(station.clone()).map_err(|e| e.to_string())?;
+    state
+        .player
+        .play(station.clone())
+        .map_err(|e| e.to_string())?;
     let _ = state.last_station.save(station);
     Ok(())
 }
@@ -352,9 +362,13 @@ pub fn player_view(state: &crate::player::PlayerState, favorites: &FavoritesStor
     // stays up until another one is chosen; a dropped connection is worth only a
     // brief mention.
     if let Some(ref err) = state.error {
-        view.error_sticky = err.contains("无法识别该电台的音频格式")
-            || err.contains("该电台的音频格式无法识别");
+        view.error_sticky =
+            err.contains("无法识别该电台的音频格式") || err.contains("该电台的音频格式无法识别");
     }
 
     view
 }
+
+#[cfg(test)]
+#[path = "commands_test.rs"]
+mod commands_test;

@@ -53,7 +53,6 @@ struct StoredStation {
     hls: bool,
     #[serde(rename = "lastcheckok", default, with = "bool_serde")]
     last_check_ok: bool,
-
 }
 
 mod bool_serde {
@@ -213,7 +212,7 @@ impl FavoritesStore {
 
     pub fn list(&self) -> Vec<Station> {
         let mut items = self.items.lock().unwrap().clone();
-        items.sort_by(|a, b| a.display_name().cmp(&b.display_name()));
+        items.sort_by_key(|a| a.display_name());
         items
     }
 
@@ -309,7 +308,7 @@ impl LastStationStore {
     pub fn get(&self) -> Result<(Station, bool), StoreError> {
         let station = self.station.lock().unwrap().clone();
         let has_station = station.is_some();
-        let station = station.unwrap_or_else(Station::default);
+        let station = station.unwrap_or_default();
         Ok((station, has_station))
     }
 
@@ -360,8 +359,8 @@ mod tests {
 
     impl Fixture {
         fn new(name: &str) -> Self {
-            let dir = std::env::temp_dir()
-                .join(format!("fm-store-test-{}-{}", std::process::id(), name));
+            let dir =
+                std::env::temp_dir().join(format!("fm-store-test-{}-{}", std::process::id(), name));
             let _ = std::fs::remove_dir_all(&dir);
             std::fs::create_dir_all(&dir).unwrap();
             Fixture(dir)
@@ -403,11 +402,18 @@ mod tests {
         // A fresh store over the same file must see what was written, which is
         // what happens on the next launch.
         let reopened = FavoritesStore::open(&path).unwrap();
-        assert_eq!(reopened.list().len(), 2, "favourites did not survive a reload");
+        assert_eq!(
+            reopened.list().len(),
+            2,
+            "favourites did not survive a reload"
+        );
 
         assert!(reopened.remove("uuid-A").unwrap());
         assert_eq!(reopened.list().len(), 1);
-        assert!(!reopened.remove("uuid-A").unwrap(), "removing twice reported a change");
+        assert!(
+            !reopened.remove("uuid-A").unwrap(),
+            "removing twice reported a change"
+        );
     }
 
     #[test]
@@ -417,7 +423,10 @@ mod tests {
         let store = FavoritesStore::open(&path).unwrap();
 
         assert!(store.add(station("A", "http://a")).unwrap());
-        assert!(!store.add(station("A", "http://a-new")).unwrap(), "second add claimed a new entry");
+        assert!(
+            !store.add(station("A", "http://a-new")).unwrap(),
+            "second add claimed a new entry"
+        );
         assert_eq!(store.list().len(), 1);
     }
 

@@ -1,5 +1,5 @@
 :root {
-  /* Palette taken from the Go version so the two apps read as the same app. */
+  /* Dark throughout, including the native widgets WebKitGTK draws for us. */
   color-scheme: dark;
 
   --bg: #131313;
@@ -28,10 +28,15 @@ body {
 }
 
 .app {
+  /* Pinned to the viewport rather than sized as height:100%. The percentage
+     chain runs .app -> #root -> body -> html, and when any link in it resolves
+     against an auto height the whole column grows to its content -- which pushes
+     the player bar, the last flex child, out of the window entirely. inset:0
+     does not depend on that chain at all. */
+  position: fixed;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  width: 100vw;
 }
 
 /* Titlebar */
@@ -103,8 +108,11 @@ body {
 
 /* Main layout */
 .main {
+  /* The one place the layout is allowed to give way: this takes the height left
+     after the titlebar and the player bar and clips whatever the panels inside
+     need beyond it. */
   display: flex;
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
 }
@@ -175,7 +183,7 @@ body {
 
 .station-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 8px;
 }
 
@@ -436,6 +444,9 @@ body {
   background: var(--bg-elevated);
   border-top: 1px solid var(--border);
   min-height: 72px;
+  /* The bar is the only way to reach the transport controls, so it keeps its
+     height instead of being squeezed out by a short tiled window. */
+  flex-shrink: 0;
 }
 
 .player-info {
@@ -479,8 +490,10 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex: 1;
-  justify-content: center;
+  /* Sized to its content, not grown and centred. As a flex:1 item it took all
+     the slack on either side and left the volume controls stranded at the far
+     end of the bar, visibly detached from the transport buttons. */
+  flex: 0 0 auto;
 }
 
 .player-btn {
@@ -533,7 +546,14 @@ body {
 }
 
 .volume-slider {
-  flex: 1;
+  /* Fixed rather than flexible: a range input falls back to its ~129px
+     intrinsic width, and a flexible track grows with the window, so the volume
+     block came out wider than the rest of the bar needed. A fixed track keeps
+     it the same size at every width. */
+  flex: 0 0 72px;
+  width: 72px;
+  min-width: 48px;
+  max-width: 72px;
   height: 4px;
   -webkit-appearance: none;
   appearance: none;
@@ -561,15 +581,95 @@ body {
   cursor: pointer;
 }
 
+/* Hyprland tiling can hand the window far less width than the app's
+   minWidth, so the player bar tightens up and sheds the volume readout before
+   it drops anything. The five transport buttons are never hidden: a half-screen
+   tile still has room for all of them, and a control that silently disappears
+   is worse than a slightly tighter bar. */
+/* A very short window -- tiling can hand out less than the minimum height --
+   leaves no room for a 72px bar. Shrinking the bar and its contents keeps the
+   whole transport row on screen instead of having its bottom sliced off. */
+@media (max-height: 220px) {
+  .player-bar {
+    min-height: 52px;
+    padding: 4px 16px;
+    gap: 8px;
+  }
+  .player-artwork {
+    width: 30px;
+    height: 30px;
+  }
+  .player-btn,
+  .player-btn.play-pause {
+    width: 30px;
+    height: 30px;
+  }
+  .player-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  .volume-slider {
+    flex: 0 0 56px;
+    width: 56px;
+    min-width: 40px;
+    max-width: 56px;
+  }
+}
+
+@media (max-width: 780px) {
+  .player-bar {
+    gap: 10px;
+    padding: 10px 16px;
+  }
+  .player-controls {
+    gap: 6px;
+  }
+  .player-btn,
+  .player-btn.play-pause {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+@media (max-width: 560px) {
+  .player-controls {
+    gap: 4px;
+  }
+
+  .player-volume .volume-value {
+    display: none;
+  }
+  .player-artwork {
+    width: 36px;
+    height: 36px;
+  }
+  .player-info {
+    gap: 8px;
+  }
+}
+
+/* The volume block needs about 114px. Leaving it in until 440px squeezes
+   the station name out of existence first, because the name is the one thing
+   with no width of its own. */
+@media (max-width: 520px) {
+  .player-volume {
+    display: none;
+  }
+}
+
 /* Collapsible sections: stations above, favourites below, both on one page. */
 .panel {
   display: flex;
   flex-direction: column;
-  /* Collapsed panels take only their header; an open one shares the leftover
-     height with the others rather than growing past the window. */
-  flex: 0 1 auto;
-  min-height: 0;
   margin-bottom: 12px;
+  /* Natural height, no shrinking. All of the clipping is done one level up, by
+     .main, so the panels stack at the height they actually need and a short
+     window simply cuts off whatever runs past the bottom -- the player bar,
+     which does not shrink, stays whole. Shrinking the panels here instead
+     handed the space to whichever had the most content, which is the wrong way
+     round. */
+  flex: 0 0 auto;
+  overflow: hidden;
 }
 
 .panel:last-child {
@@ -664,6 +764,10 @@ body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  /* Reserve the scrollbar column even when the content happens to fit, so the
+     card grid keeps the same width -- and the same column count -- at every
+     window width. */
+  scrollbar-gutter: stable;
   /* Keeps a scroll that reaches the end from then scrolling the window. */
   overscroll-behavior: contain;
   padding: 0 2px;
@@ -695,20 +799,6 @@ body {
 .btn:hover {
   border-color: var(--accent);
   color: var(--accent);
-}
-
-/* The second click of a destructive action: it has to read as a warning, not
-   as another neutral control, or the two states look interchangeable. */
-.btn-danger {
-  border-color: var(--danger);
-  color: var(--danger);
-  white-space: nowrap;
-}
-
-.btn-danger:hover {
-  border-color: var(--danger);
-  color: #fff;
-  background: var(--danger);
 }
 
 .panel-empty {
