@@ -6,8 +6,18 @@
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="128" fill="url(#bg)"/>
-  <path d="M128 384c-70.7 0-128-57.3-128-128 0-70.7 57.3-128 128-128 70.7 0 128 57.3 128 128 0 36.5-14.6 69.8-38.4 93.6" fill="none" stroke="white" stroke-width="32" stroke-linecap="round"/>
-  <path d="M192 320c-35.3 0-64-28.7-64-64 0-35.3 28.7-64 64-64 35.3 0 64 28.7 64 64 0 18.5-7.4 35.5-19.2 46.8" fill="none" stroke="white" stroke-width="24" stroke-linecap="round"/>
-  <path d="M256 256c0 31.4 25.5 57 57 57 0 18.5-7.4 35.5-19.2 46.8" fill="none" stroke="white" stroke-width="16" stroke-linecap="round"/>
-  <circle cx="256" cy="256" r="32" fill="white"/>
+  <!-- Drawn on the same 24-unit grid as the titlebar icon, scaled to the tile,
+       so the two are one mark at two sizes rather than two drawings. Stroke
+       widths scale with it: 1.5 becomes 32, matching the weight the earlier
+       wave-based mark used. -->
+  <!-- translate is applied after the scale, so its units are the 512 tile, not
+       the 24 grid. The mark is bottom-heavy (body low, antenna high), so its ink
+       centroid lands 10.5px below centre; -10.5 centres the ink, not the box. -->
+  <g transform="translate(0 -10.5) scale(21.3333)" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2.75" y="9.25" width="18.5" height="11.5" rx="2.25" stroke-width="1.5"/>
+    <path d="M6 13h3.5M6 16h3.5M6 19h3.5" stroke-width="1.2"/>
+    <circle cx="15.75" cy="16.25" r="2.5" stroke-width="1.5"/>
+    <path d="M14.25 14.75l3 3" stroke-width="1.2"/>
+    <path d="M7 9.25L17.5 4.25" stroke-width="1.4"/>
+  </g>
 </svg>

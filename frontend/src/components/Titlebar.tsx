@@ -6,11 +6,12 @@ export function Titlebar({ onClose }: TitlebarProps) {
   return (
     <div className="titlebar" data-tauri-drag-region>
       <div className="titlebar-left" data-tauri-drag-region>
-        <svg className="app-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9c2-2 5.1-2 7.1 0 1.2 1.2 2 2.9 2 4.6 0 3.6-2.9 6.5-6.5 6.5-1.7 0-3.4-.8-4.6-2z" />
-          <path d="M7.8 16.2c-1.1 1.1-1.7 2.6-1.7 4.2 0 3.1 2.5 5.6 5.6 5.6 1.6 0 3.1-.6 4.2-1.7" />
-          <path d="M11 5a6 6 0 0 1 6 6c0 1.6-.6 3.1-1.7 4.2" />
-          <circle cx="12" cy="12" r="2" />
+        <svg className="app-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="2.75" y="9.25" width="18.5" height="11.5" rx="2.25" strokeWidth="1.5" />
+          <path d="M6 13h3.5M6 16h3.5M6 19h3.5" strokeWidth="1.2" />
+          <circle cx="15.75" cy="16.25" r="2.5" strokeWidth="1.5" />
+          <path d="M14.25 14.75l3 3" strokeWidth="1.2" />
+          <path d="M7 9.25L17.5 4.25" strokeWidth="1.4" />
         </svg>
         <span className="app-title">FM 电台</span>
       </div>
