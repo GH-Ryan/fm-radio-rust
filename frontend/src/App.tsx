@@ -293,7 +293,7 @@ function App() {
       <div className="main">
         <div className="content">
           <main className="content-body">
-            <section className="panel">
+            <section className={`panel ${collapsed.stations ? '' : 'is-open'}`}>
                 <div className="panel-head-row">
                   <button
                     className="panel-head"
@@ -340,7 +340,7 @@ function App() {
                 </div>
             </section>
 
-            <section className="panel">
+            <section className={`panel ${collapsed.favorites ? '' : 'is-open'}`}>
               <div className="panel-head-row">
                 <button
                   className="panel-head"

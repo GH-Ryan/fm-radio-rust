@@ -662,14 +662,26 @@ body {
   display: flex;
   flex-direction: column;
   margin-bottom: 12px;
-  /* Natural height, no shrinking. All of the clipping is done one level up, by
-     .main, so the panels stack at the height they actually need and a short
-     window simply cuts off whatever runs past the bottom -- the player bar,
-     which does not shrink, stays whole. Shrinking the panels here instead
-     handed the space to whichever had the most content, which is the wrong way
-     round. */
+  /* A folded panel is just its header, so its natural height is the right one. */
   flex: 0 0 auto;
+  /* Overriding the automatic minimum size is what lets the open panel shrink
+     below the height of the list inside it. A flex item's automatic minimum
+     size is its content height, so without this the panel is held open by the
+     cards and .panel-body-inner is left with no definite height to resolve its
+     overflow-y against -- the scroller never engages and .main's overflow:hidden
+     just cuts the list off at the bottom with no way to reach the rest. */
+  min-height: 0;
   overflow: hidden;
+}
+
+.panel.is-open {
+  /* flex-basis 0 with grow, rather than a share of the shrinkage. The leftover
+     height goes to the open panel as a whole, so it scrolls inside itself.
+     Leaving both panels merely shrinkable hands the space out in proportion to
+     their content, which is backwards: the panel carrying the whole station list
+     is the one that gets squeezed down to almost nothing, and the small panel
+     below it keeps its full height. */
+  flex: 1 1 0;
 }
 
 .panel:last-child {
