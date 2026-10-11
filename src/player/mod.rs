@@ -35,7 +35,18 @@ pub struct PlayerState {
     pub playing: bool,
     pub station: Option<Station>,
     pub title: String,
+    /// A stable code describing how playback is being produced, not the text the
+    /// user reads: `"connecting"`, `"internal_decode"`, or empty for neither.
+    ///
+    /// This used to hold the finished sentence, which meant the backend decided
+    /// what language the UI was in. It carries a code for the same reason
+    /// `AppError` does -- so the wording can change, or be translated, without
+    /// the backend knowing anything about it.
     pub backend: String,
+    /// Sample rate in Hz, present only when `backend` is `"internal_decode"`.
+    /// Split out as a number so the UI can place it inside its own sentence
+    /// instead of being handed a pre-formatted one.
+    pub sample_rate: Option<u32>,
     pub error: Option<crate::error::AppError>,
     pub volume: f32,
     pub paused: bool,
@@ -128,7 +139,7 @@ impl Player {
             let mut state = self.state.lock().unwrap();
             state.station = Some(station.clone());
             state.title = String::new();
-            state.backend = "连接中".to_string();
+            state.backend = "connecting".to_string();
             state.error = None;
             state.paused = false;
             state.playing = true;
@@ -303,7 +314,8 @@ impl Player {
 
         {
             let mut st = state.lock().unwrap();
-            st.backend = format!("内置解码 · {} Hz", sample_rate);
+            st.backend = "internal_decode".to_string();
+            st.sample_rate = Some(sample_rate as u32);
         }
         if let Some(cb) = &*on_change.lock().unwrap() {
             cb(state.lock().unwrap().clone());
@@ -455,6 +467,7 @@ impl Player {
             state.paused = false;
             state.playing_key = None;
             state.backend = String::new();
+            state.sample_rate = None;
             state.error = None;
         }
         self.emit();
@@ -469,6 +482,7 @@ impl Player {
             state.station = Some(station);
             state.title = String::new();
             state.backend = String::new();
+            state.sample_rate = None;
             state.error = None;
             state.paused = false;
         }

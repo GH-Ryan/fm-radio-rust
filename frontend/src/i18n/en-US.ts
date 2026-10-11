@@ -44,7 +44,8 @@ export const enUS = {
   cardPause: 'Pause',
 
   // ---- Station metadata ----
-  unknownCodec: 'Unknown format',
+  // An unknown codec is rendered as `?` by MetaIcons rather than through a
+  // translation, so there is no key for it here.
 
   // ---- Errors raised by the UI ----
   loadFailed: 'Could not load: {error}',
@@ -64,4 +65,5 @@ export const enUS = {
 
   // ---- Playback status ----
   backendConnecting: 'Connecting',
+  backendInternalDecode: 'Internal decode · {rate} Hz',
 } satisfies Translations

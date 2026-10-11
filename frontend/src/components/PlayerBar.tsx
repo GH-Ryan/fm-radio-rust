@@ -1,6 +1,7 @@
 import { PlayerView } from '../types'
 import { StationArt } from './StationArt'
 import { useI18n } from '../i18n/useI18n'
+import { backendStatusText } from '../i18n'
 
 interface PlayerBarProps {
   player: PlayerView | null
@@ -20,6 +21,7 @@ export function PlayerBar({ player, onPlayPause, onStop, onVolumeChange, isMuted
   if (!player) return null
 
   const isPlaying = player.playing && !player.paused
+  const backendStatus = backendStatusText(t, player.backend, player.sampleRate)
   const percent = Math.round(player.volume * 100)
   // Nothing to start, and the button would only report an error.
   const canStart = isPlaying || Boolean(player.station)
@@ -57,7 +59,7 @@ export function PlayerBar({ player, onPlayPause, onStop, onVolumeChange, isMuted
           </div>
           <div className="player-station">
             {player.station?.displayName || player.name}
-            {player.backend && ` · ${player.backend}`}
+            {backendStatus && ` · ${backendStatus}`}
           </div>
         </div>
       </div>

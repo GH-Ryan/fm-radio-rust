@@ -41,7 +41,7 @@ export const zhCN = {
   cardPause: '暂停',
 
   // ---- 电台元信息 ----
-  unknownCodec: '未知格式',
+  // 未知编码由 MetaIcons 直接渲染成 `?`，不走文案，所以这里没有对应 key。
 
   // ---- 错误：前端自身产生 ----
   loadFailed: '加载失败: {error}',
@@ -62,7 +62,10 @@ export const zhCN = {
   backendError: '{message}',
 
   // ---- 播放状态 ----
+  // 后端只发语义码（见 src/player/mod.rs 的 PlayerState.backend），文案在
+  // 这里决定，和错误码同样的分工。
   backendConnecting: '连接中',
+  backendInternalDecode: '内置解码 · {rate} Hz',
 } as const
 
 export type TranslationKey = keyof typeof zhCN

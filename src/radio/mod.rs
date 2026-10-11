@@ -288,10 +288,17 @@ impl Station {
         }
     }
 
+    /// The codec as shown on a card: normalised, and language-neutral.
+    ///
+    /// Returns an empty string when the station declares no codec. This used to
+    /// return the sentence "未知格式", which meant a Chinese word travelled to
+    /// the frontend as data and surfaced in an English tooltip. The UI already
+    /// marks an unknown codec itself -- MetaIcons renders `?` when
+    /// `codecKnown` is false -- so there is nothing for the backend to say here.
     pub fn codec_name(&self) -> String {
         let codec = self.codec.trim().to_uppercase();
         match codec.as_str() {
-            "" => "未知格式".to_string(),
+            "" => String::new(),
             "AAC+" | "AAC" => "AAC".to_string(),
             _ => codec,
         }
@@ -328,7 +335,12 @@ impl Station {
         if self.bitrate > 0 {
             parts.push(format!("{} kbps", self.bitrate));
         }
-        parts.push(self.codec_name());
+        // Only when the station declares one; an empty codec would otherwise
+        // leave a trailing separator with nothing after it.
+        let codec = self.codec_name();
+        if !codec.is_empty() {
+            parts.push(codec);
+        }
         parts.join(" · ")
     }
 }
@@ -650,7 +662,10 @@ mod tests {
         s.codec = "aac+".into();
         assert_eq!(s.codec_name(), "AAC");
         s.codec = String::new();
-        assert_eq!(s.codec_name(), "未知格式");
+        // Empty, not a placeholder sentence: the card shows `?` on its own when
+        // `codec_known` is false, so any text here would only ever leak into the
+        // tooltip in the wrong language.
+        assert_eq!(s.codec_name(), "");
         s.codec = " mp3 ".into();
         assert_eq!(s.codec_name(), "MP3");
     }
@@ -668,6 +683,10 @@ mod tests {
         // A bitrate of zero is missing data, not a station playing at 0 kbps.
         s.bitrate = 0;
         assert_eq!(s.meta(), "China · chinese · music · MP3");
+
+        // An absent codec leaves no trailing separator.
+        s.codec = String::new();
+        assert_eq!(s.meta(), "China · chinese · music");
     }
 
     #[test]

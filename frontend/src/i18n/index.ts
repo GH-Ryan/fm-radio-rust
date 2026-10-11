@@ -90,3 +90,25 @@ export function translateBackendError(
 
   return entry.replace(/\{detail\}/g, detail ?? '')
 }
+
+/**
+ * The sentence shown next to the station name for how playback is produced.
+ *
+ * `code` comes from `PlayerState.backend` and is a stable identifier, never
+ * display text, so the same rule as `translateBackendError` applies: the UI
+ * owns the wording. Empty input yields an empty string, which is how "nothing
+ * to say" is expressed, and an unrecognised code yields nothing rather than a
+ * raw identifier the reader could not act on.
+ */
+export function backendStatusText(
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string,
+  code: string,
+  sampleRate: number | null,
+): string {
+  if (!code) return ''
+  if (code === 'connecting') return t('backendConnecting')
+  if (code === 'internal_decode') {
+    return t('backendInternalDecode', { rate: sampleRate ?? '' })
+  }
+  return ''
+}
