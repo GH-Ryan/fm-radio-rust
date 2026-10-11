@@ -1,5 +1,17 @@
 param(
-  [string]$Root = 'C:\Users\win11\Downloads\fm-radio-rust'
+  # Defaults to the repository root, derived from this script's location, so the
+  # same invocation works on a workstation and on a runner. An absolute default
+  # would silently point at a non-existent path in CI.
+  [string]$Root = (Split-Path $PSScriptRoot -Parent),
+  # CI has no certificate in the tree: *.pfx is gitignored, and a dev
+  # certificate must not be committed anyway. The workflow generates one with
+  # the publisher subject the manifest declares and passes its path here.
+  [string]$CertPath = '',
+  [string]$CertPassword = 'password',
+  # Every Store submission needs a strictly higher version than the last, so CI
+  # cannot ship whatever is committed. Rewritten on the staged copy only; the
+  # manifest in the tree keeps its placeholder.
+  [string]$Version = ''
 )
 
 # Builds the Store MSIX from a clean staging directory.
@@ -12,12 +24,12 @@ param(
 # Start menu falls back to the raw identifier.
 #
 # So the stage is assembled by hand, makepri runs with tools/priconfig.xml, and
-# makeappx packs the result. Staging is a fresh directory rather than a second
-# pass over msix\stage because the folder indexer walks everything under the
-# root, and the previous .msix and .pfx would be indexed along with it.
+# makeappx packs the result. Staging is a fresh directory rather than building
+# in place because the folder indexer walks everything under the root, and any
+# .msix or .pfx sitting there would be indexed along with the payload.
 #
-# Signing uses the same dev certificate as before. It is not trusted on this
-# machine after a rebuild, which only affects local install; Partner Center
+# Signing uses msix\dev-cert.pfx, or the certificate named by -CertPath. It is
+# not trusted on this machine, which only affects local install; Partner Center
 # validates the signature rather than the chain.
 #
 # Comments and messages are deliberately ASCII: Windows PowerShell 5.1 reads a
@@ -26,7 +38,17 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$sdk      = 'C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64'
+# Locate the newest installed SDK rather than pinning a version. A runner image
+# will not have the same SDK build as a workstation, and a hardcoded path turns
+# that into a missing-file error that reads like a broken script.
+$sdkRoot = 'C:\Program Files (x86)\Windows Kits\10\bin'
+$sdk = (Get-ChildItem $sdkRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { Test-Path (Join-Path $_.FullName 'x64\makepri.exe') } |
+        Sort-Object Name -Descending |
+        Select-Object -First 1).FullName
+if (-not $sdk) { throw "No Windows SDK with makepri.exe found under $sdkRoot" }
+$sdk = Join-Path $sdk 'x64'
+
 $makepri  = Join-Path $sdk 'makepri.exe'
 $makeappx = Join-Path $sdk 'makeappx.exe'
 # Resolved inside the x64 folder specifically. Searching the whole bin tree
@@ -35,7 +57,7 @@ $makeappx = Join-Path $sdk 'makeappx.exe'
 $signtool = Join-Path $sdk 'signtool.exe'
 
 $build    = Join-Path $Root 'msix\build'
-$cert     = Join-Path $Root 'msix\stage\RayDigital.FM_cert.pfx'
+$cert     = if ($CertPath) { $CertPath } else { Join-Path $Root 'msix\dev-cert.pfx' }
 $manifest = Join-Path $Root 'Package.appxmanifest'
 $exe      = Join-Path $Root 'target\release\fm-radio.exe'
 $config   = Join-Path $Root 'tools\priconfig.xml'
@@ -56,6 +78,10 @@ Copy-Item $exe "$build\fm-radio.exe" -Force
 # validation fails with "the file name \"$targetnametoken$.exe\" ... doesn't
 # exist in the package". The staged copy gets the real name instead.
 $manifestXml = (Get-Content $manifest -Raw) -replace '\$targetnametoken\$', 'fm-radio'
+if ($Version) {
+  $manifestXml = [regex]::Replace(
+    $manifestXml, '(?<=<Identity[^>]*Version=")[0-9.]+(?=")', $Version, 'None')
+}
 [IO.File]::WriteAllText("$build\AppxManifest.xml", $manifestXml, (New-Object Text.UTF8Encoding $false))
 Copy-Item (Join-Path $Root 'Assets') $build -Recurse -Force
 Copy-Item (Join-Path $Root 'Strings') $build -Recurse -Force
@@ -89,7 +115,7 @@ foreach ($l in @('zh-CN', 'en-US')) {
 }
 Remove-Item "$build\pri-dump.xml" -Force
 
-$raw = Get-Content $manifest -Raw
+$raw = Get-Content "$build\AppxManifest.xml" -Raw
 $name = [regex]::Match($raw, 'Name="([^"]+)"').Groups[1].Value
 $version = [regex]::Match($raw, 'Version="([0-9.]+)"').Groups[1].Value
 $msix = Join-Path $build ("{0}_{1}_x64.msix" -f $name, $version)
@@ -98,7 +124,7 @@ Write-Host '4) Pack'
 & $makeappx pack /d $build /p $msix /o | Select-Object -Last 2
 
 Write-Host '5) Sign'
-& $signtool sign /fd SHA256 /a /f $cert /p password $msix | Select-Object -Last 2
+& $signtool sign /fd SHA256 /a /f $cert /p $CertPassword $msix | Select-Object -Last 2
 
 $item = Get-Item $msix
 Write-Host ''

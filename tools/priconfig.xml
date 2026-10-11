@@ -28,7 +28,12 @@
 <resources targetOsVersion="10.0.0" majorVersion="1">
   <index root="\" startIndexAt="\">
     <default>
-      <qualifier name="Language" value="en-US" />
+      <!-- The fallback used when no qualifier matches, and also the candidate
+           Partner Center reads when checking the manifest against the reserved
+           product name. It is not the language the app displays: an English
+           Windows still resolves the en-US candidate. It therefore has to be
+           zh-CN, because that is the name reserved in Partner Center. -->
+      <qualifier name="Language" value="zh-CN" />
       <qualifier name="Contrast" value="standard" />
       <qualifier name="Scale" value="100" />
       <qualifier name="HomeRegion" value="001" />
