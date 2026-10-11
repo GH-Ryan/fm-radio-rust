@@ -1,5 +1,6 @@
 import { PlayerView } from '../types'
-import { artworkSource } from './StationArt'
+import { StationArt } from './StationArt'
+import { useI18n } from '../i18n/useI18n'
 
 interface PlayerBarProps {
   player: PlayerView | null
@@ -14,6 +15,8 @@ interface PlayerBarProps {
 }
 
 export function PlayerBar({ player, onPlayPause, onStop, onVolumeChange, isMuted, onToggleMute, onToggleFavorite, onPlayRandomBrowse, onPlayRandomFavorites }: PlayerBarProps) {
+  const { t } = useI18n()
+
   if (!player) return null
 
   const isPlaying = player.playing && !player.paused
@@ -32,13 +35,17 @@ export function PlayerBar({ player, onPlayPause, onStop, onVolumeChange, isMuted
         <span>{player.error}</span>
       </div>
     )}
-    <footer className="player-bar" role="region" aria-label="播放器控制">
+    <footer className="player-bar" role="region" aria-label={t('playerRegionLabel')}>
       <div className="player-info">
-        {player.station && artworkSource(player.station) ? (
-          <img className="player-artwork" src={artworkSource(player.station)} alt="" />
+        {/* StationArt, not a bare img: the catalogue's logo URLs are dead often
+            enough that a plain img shows a broken-image glyph, and the list
+            already handles that with a flag or a letter underneath. Reusing
+            the component keeps the two in step. */}
+        {player.station ? (
+          <StationArt station={player.station} className="player-artwork" />
         ) : (
-          <div className="player-artwork" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1c21' }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: 24, height: 24, opacity: 0.5 }}>
+          <div className="player-artwork player-artwork-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
               <path d="M12 2a10 10 0 0 1 10 10c0 1.6-.6 3.1-1.7 4.2" />
               <path d="M19 21l-7-7-7 7V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
             </svg>
@@ -46,7 +53,7 @@ export function PlayerBar({ player, onPlayPause, onStop, onVolumeChange, isMuted
         )}
         <div className="player-details">
           <div className="player-title">
-            {player.title || player.name || '未知电台'}
+            {player.title || player.name || t('unknownStation')}
           </div>
           <div className="player-station">
             {player.station?.displayName || player.name}
@@ -59,7 +66,7 @@ export function PlayerBar({ player, onPlayPause, onStop, onVolumeChange, isMuted
         <button
           className="player-btn"
           onClick={onPlayRandomBrowse}
-          title="随机播放（电台列表）"
+          title={t('randomFromBrowse')}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="19" height="19">
             <rect x="3" y="3" width="18" height="18" rx="4" />
@@ -71,7 +78,7 @@ export function PlayerBar({ player, onPlayPause, onStop, onVolumeChange, isMuted
         <button
           className="player-btn"
           onClick={onPlayRandomFavorites}
-          title="随机播放（收藏列表）"
+          title={t('randomFromFavorites')}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="19" height="19">
             <path d="M12 20.5l-1.3-1.2C6 15 3 12.3 3 8.9 3 6.1 5.2 4 7.9 4c1.5 0 3 .7 3.9 1.8C12.8 4.7 14.2 4 15.8 4 18.5 4 20.7 6.1 20.7 8.9c0 3.4-3 6.1-7.7 10.4L12 20.5z" />
@@ -82,8 +89,8 @@ export function PlayerBar({ player, onPlayPause, onStop, onVolumeChange, isMuted
           className="player-btn play-pause"
           onClick={onPlayPause}
           disabled={!canStart}
-          title={isPlaying ? '暂停' : '播放'}
-          aria-label={isPlaying ? '暂停' : '播放'}
+          title={isPlaying ? t('pause') : t('play')}
+          aria-label={isPlaying ? t('pause') : t('play')}
         >
           {isPlaying ? (
             <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
@@ -99,7 +106,7 @@ export function PlayerBar({ player, onPlayPause, onStop, onVolumeChange, isMuted
         <button
           className="player-btn"
           onClick={onStop}
-          title="停止"
+          title={t('stop')}
           disabled={!player.playing}
         >
           <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
@@ -109,8 +116,8 @@ export function PlayerBar({ player, onPlayPause, onStop, onVolumeChange, isMuted
         <button
           className="player-btn"
           onClick={onToggleFavorite}
-          title={player.station?.favorite ? '取消收藏' : '收藏'}
-          aria-label={player.station?.favorite ? '取消收藏' : '收藏'}
+          title={player.station?.favorite ? t('unfavorite') : t('favorite')}
+          aria-label={player.station?.favorite ? t('unfavorite') : t('favorite')}
           aria-pressed={player.station?.favorite ?? false}
           disabled={!player.station}
           style={{ color: player.station?.favorite ? 'var(--star)' : undefined }}
@@ -125,8 +132,8 @@ export function PlayerBar({ player, onPlayPause, onStop, onVolumeChange, isMuted
         <button
           className="player-btn"
           onClick={onToggleMute}
-          title={isMuted ? '取消静音' : '静音'}
-          aria-label={isMuted ? '取消静音' : '静音'}
+          title={isMuted ? t('unmute') : t('mute')}
+          aria-label={isMuted ? t('unmute') : t('mute')}
           aria-pressed={isMuted}
           style={{ width: 32, height: 32, flexShrink: 0, color: isMuted ? 'var(--accent)' : undefined }}
         >
@@ -150,7 +157,7 @@ export function PlayerBar({ player, onPlayPause, onStop, onVolumeChange, isMuted
           step="0.01"
           value={player.volume}
           onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-          aria-label="音量"
+          aria-label={t('volume')}
         />
         <span className="volume-value">{percent}</span>
       </div>

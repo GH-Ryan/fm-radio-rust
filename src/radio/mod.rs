@@ -7,7 +7,17 @@ use url::Url;
 
 const DEFAULT_MIRROR: &str = "https://de1.api.radio-browser.info";
 const MIRROR_HOST: &str = "all.api.radio-browser.info";
-const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/60.5 Safari/605.1.15 wails.io/605.1.15";
+
+// Radio Browser asks clients to identify themselves rather than impersonate a
+// browser: they publish no rate limit, but they do ask for a descriptive
+// User-Agent so they can tell real apps apart from scrapers. This one used to
+// claim to be Safari on Linux via wails.io, which was both wrong -- the app is
+// Tauri on Windows -- and left the project with no way to identify callers.
+const USER_AGENT: &str = concat!(
+    "FMRadio/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://github.com/GH-Ryan/fm-radio-rust)"
+);
 const MAX_FALLBACKS: usize = 4;
 const FALLBACK_TTL: Duration = Duration::from_secs(10 * 60);
 const MAX_CATALOGUE_RESPONSE_BYTES: u64 = 2 << 20;

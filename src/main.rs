@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 pub mod commands;
+pub mod error;
 pub mod player;
 pub mod radio;
 pub mod store;
@@ -49,9 +50,13 @@ fn main() {
     let app = tauri::Builder::default()
         .manage(state)
         .setup(|app| {
-            let window = app.get_webview_window("main").unwrap();
+            // Only Linux needs the decoration turned off here. The window is
+            // already declared undecorated in tauri.conf.json, but WebKitGTK
+            // ignores that and has to be told at runtime, so the call is kept
+            // for Linux alone rather than run everywhere.
             #[cfg(target_os = "linux")]
             {
+                let window = app.get_webview_window("main").unwrap();
                 let _ = window.set_decorations(false);
             }
 

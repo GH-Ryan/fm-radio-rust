@@ -998,6 +998,7 @@ name = "fm-radio"
 version = "0.1.0"
 dependencies = [
  "dirs 5.0.1",
+ "encoding_rs",
  "fastrand",
  "reqwest 0.12.28",
  "rodio",

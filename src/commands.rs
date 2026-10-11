@@ -1,3 +1,4 @@
+use crate::error::{AppError, AppResult, ErrSuperseded, code};
 use crate::radio::Station;
 use crate::store::FavoritesStore;
 // AppState is defined in this file
@@ -27,6 +28,13 @@ pub struct StationView {
     pub country_code: String,
     pub language: String,
     pub codec: String,
+    /// Whether the catalogue named a codec at all.
+    ///
+    /// Carried separately because `codec` holds the label to display, and the
+    /// label for a station that named none is a sentence rather than data.
+    /// Comparing against that sentence is what the UI used to do, which breaks
+    /// the moment the wording changes or the backend speaks another language.
+    pub codec_known: bool,
     pub bitrate: u32,
     pub votes: u32,
     /// Kept as a list: a tag can contain a comma, so a joined string could not
@@ -53,6 +61,7 @@ impl StationView {
             country_code: station.country_code.to_lowercase(),
             language: station.language.trim().to_string(),
             codec: station.codec_name(),
+            codec_known: !station.codec.trim().is_empty(),
             bitrate: station.bitrate,
             votes: station.votes,
             tag_list: station.tags.clone(),
@@ -110,7 +119,7 @@ pub struct PlayerView {
     pub name: String,
     pub title: String,
     pub backend: String,
-    pub error: Option<String>,
+    pub error: Option<AppError>,
     pub error_sticky: bool,
     pub volume: f32,
     pub station: Option<StationView>,
@@ -118,20 +127,8 @@ pub struct PlayerView {
 
 const SEARCH_LIMIT: u32 = 150;
 
-/// Reported when a request was overtaken by a newer one. The caller treats it as
-/// "nothing to show" rather than as a failure, since the newer request is about
-/// to deliver the answer anyway.
-#[derive(Debug, Clone, Copy)]
-pub struct ErrSuperseded;
-
-impl std::fmt::Display for ErrSuperseded {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("请求已被新的操作取代")
-    }
-}
-
 #[tauri::command]
-pub async fn top_stations(state: State<'_, AppState>) -> Result<Vec<StationView>, String> {
+pub async fn top_stations(state: State<'_, AppState>) -> AppResult<Vec<StationView>> {
     let current_seq = {
         let mut seq = state.search_seq.lock().await;
         *seq += 1;
@@ -141,14 +138,14 @@ pub async fn top_stations(state: State<'_, AppState>) -> Result<Vec<StationView>
     let client = state.client.clone();
     let stations = spawn_blocking(move || client.top(SEARCH_LIMIT))
         .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())?;
+        ?
+        ?;
 
     // A newer request has been issued. Its result is the one the user wants, so
     // this one is dropped -- but reporting it as an empty list would clear what
     // is on screen, so it is reported as a cancellation the caller ignores.
     if *state.search_seq.lock().await != current_seq {
-        return Err(ErrSuperseded.to_string());
+        return Err(ErrSuperseded.into());
     }
 
     {
@@ -167,7 +164,7 @@ pub async fn top_stations(state: State<'_, AppState>) -> Result<Vec<StationView>
 pub async fn search_stations(
     term: String,
     state: State<'_, AppState>,
-) -> Result<Vec<StationView>, String> {
+) -> AppResult<Vec<StationView>> {
     let term = term.trim().to_string();
 
     let current_seq = {
@@ -186,11 +183,11 @@ pub async fn search_stations(
         }
     })
     .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())?;
+    ?
+    ?;
 
     if *state.search_seq.lock().await != current_seq {
-        return Err(ErrSuperseded.to_string());
+        return Err(ErrSuperseded.into());
     }
 
     {
@@ -209,7 +206,7 @@ pub async fn search_stations(
 pub async fn get_favorites(
     filter: Option<String>,
     state: State<'_, AppState>,
-) -> Result<Vec<StationView>, String> {
+) -> AppResult<Vec<StationView>> {
     let stored = state.favorites.list();
     let needle = filter.as_deref().unwrap_or_default().trim().to_lowercase();
 
@@ -251,18 +248,18 @@ pub async fn get_favorites(
 pub async fn toggle_favorite(
     station: StationView,
     state: State<'_, AppState>,
-) -> Result<bool, String> {
+) -> AppResult<bool> {
     let station_obj = station.to_station();
     let key = station_obj.key();
 
     let favorite = if state.favorites.has(&key) {
-        state.favorites.remove(&key).map_err(|e| e.to_string())?;
+        state.favorites.remove(&key)?;
         false
     } else {
         state
             .favorites
             .add(station_obj.clone())
-            .map_err(|e| e.to_string())?;
+            ?;
         true
     };
 
@@ -278,56 +275,56 @@ pub async fn toggle_favorite(
 }
 
 #[tauri::command]
-pub async fn play_station(station: StationView, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn play_station(station: StationView, state: State<'_, AppState>) -> AppResult<()> {
     let station_obj = station.to_station();
     state
         .player
         .play(station_obj.clone())
-        .map_err(|e| e.to_string())?;
+        ?;
     let _ = state.last_station.save(station_obj);
     Ok(())
 }
 
 #[tauri::command]
-pub async fn play_pause(state: State<'_, AppState>) -> Result<(), String> {
-    state.player.play_pause().map_err(|e| e.to_string())
+pub async fn play_pause(state: State<'_, AppState>) -> AppResult<()> {
+    state.player.play_pause().map_err(AppError::from)
 }
 
 #[tauri::command]
-pub async fn stop_playback(state: State<'_, AppState>) -> Result<(), String> {
+pub async fn stop_playback(state: State<'_, AppState>) -> AppResult<()> {
     state.player.stop();
     Ok(())
 }
 
 #[tauri::command]
-pub async fn play_random(list: String, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn play_random(list: String, state: State<'_, AppState>) -> AppResult<()> {
     let pool = match list.as_str() {
         "favorites" => state.fav_pool.lock().await.clone(),
         "browse" | "" => state.browse_pool.lock().await.clone(),
-        _ => return Err(format!("未知列表 {:?}", list)),
+        _ => return Err(AppError::with_detail(code::UNKNOWN_LIST, format!("未知列表 {:?}", list), list)),
     };
 
     if pool.is_empty() {
-        return Err("当前列表为空".to_string());
+        return Err(AppError::new(code::EMPTY_LIST, "当前列表为空"));
     }
 
     let station = pool[fastrand::usize(..pool.len())].clone();
     state
         .player
         .play(station.clone())
-        .map_err(|e| e.to_string())?;
+        ?;
     let _ = state.last_station.save(station);
     Ok(())
 }
 
 #[tauri::command]
-pub async fn set_volume(v: f32, state: State<'_, AppState>) -> Result<f32, String> {
+pub async fn set_volume(v: f32, state: State<'_, AppState>) -> AppResult<f32> {
     state.player.set_volume(v);
     Ok(state.player.volume())
 }
 
 #[tauri::command]
-pub async fn get_state(state: State<'_, AppState>) -> Result<PlayerView, String> {
+pub async fn get_state(state: State<'_, AppState>) -> AppResult<PlayerView> {
     Ok(player_view(&state.player.state(), &state.favorites))
 }
 
@@ -360,10 +357,11 @@ pub fn player_view(state: &crate::player::PlayerState, favorites: &FavoritesStor
 
     // A format the app cannot decode is a property of the station, so the notice
     // stays up until another one is chosen; a dropped connection is worth only a
-    // brief mention.
+    // brief mention. Decided on the code rather than on the wording, which used
+    // to make this silently stop matching the moment the copy was reworded or
+    // translated.
     if let Some(ref err) = state.error {
-        view.error_sticky =
-            err.contains("无法识别该电台的音频格式") || err.contains("该电台的音频格式无法识别");
+        view.error_sticky = matches!(err.code.as_str(), code::UNSUPPORTED_FORMAT | code::FORMAT_NOT_SUPPORTED);
     }
 
     view

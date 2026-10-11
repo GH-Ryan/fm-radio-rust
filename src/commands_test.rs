@@ -26,6 +26,7 @@ fn view() -> StationView {
         country_code: "fr".into(),
         language: "French".into(),
         codec: "MP3".into(),
+        codec_known: true,
         bitrate: 128,
         votes: 7,
         tag_list: vec!["Jazz".into(), "Eclectic".into()],

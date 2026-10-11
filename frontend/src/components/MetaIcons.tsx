@@ -47,7 +47,10 @@ export function MetaIcons({ station }: { station: StationView }) {
       )}
 
       <span className={`meta-codec tone-${tone}`}>
-        {station.codec && station.codec !== '未知格式' ? station.codec : '?'}
+        {/* codecKnown rather than a comparison against the label: the label for
+            an unnamed codec is a sentence, and matching on it breaks as soon as
+            the backend is localised or the wording is edited. */}
+        {station.codecKnown ? station.codec : '?'}
       </span>
     </div>
   )

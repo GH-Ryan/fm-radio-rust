@@ -29,6 +29,10 @@ tracing-subscriber = "0.3"
 thiserror = "1.0"
 url = "2.5"
 fastrand = "2.0"
+# ICY metadata blocks carry no charset declaration and many stations send GB2312 or
+# GBK rather than UTF-8. Decoding those as UTF-8 yields U+FFFD for every
+# non-ASCII byte, which is the row of diamonds the panel used to show.
+encoding_rs = "0.8"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

@@ -7,6 +7,9 @@ import { StationGrid } from './components/StationGrid'
 import { PlayerBar } from './components/PlayerBar'
 import { Toast } from './components/Toast'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { useI18n } from './i18n/useI18n'
+import { translateBackendError } from './i18n'
+import { errorMessage, isSuperseded } from './lib/errors'
 import './styles/index.css'
 
 interface AppState {
@@ -18,6 +21,20 @@ interface AppState {
 }
 
 function App() {
+  const { t, locale } = useI18n()
+
+  // A backend failure arrives as { code, message, detail? }. The code is stable
+  // and decides what to show; the message is what the backend wrote in its own
+  // language and is only used when the code has no translation yet.
+  const localize = (e: unknown): string => {
+    const raw = errorMessage(e)
+    const err = e as { code?: unknown; detail?: unknown } | null
+    if (err && typeof err.code === 'string') {
+      return translateBackendError(locale, err.code, raw, typeof err.detail === 'string' ? err.detail : undefined)
+    }
+    return raw
+  }
+
   const [collapsed, setCollapsed] = useState<{ stations: boolean; favorites: boolean }>({
     stations: false,
     favorites: true,
@@ -39,7 +56,8 @@ function App() {
 
   // A request overtaken by a newer one is not a failure: the newer request is
   // already answering, so this one must not touch the list or the spinner.
-  const isSuperseded = (e: unknown) => String(e).includes('已被新的操作取代')
+  // Recognised by the backend's code rather than by its wording, so it keeps
+  // working when the copy changes or the backend speaks another language.
 
   const errorTimer = useRef<number | undefined>(undefined)
 
@@ -59,7 +77,7 @@ function App() {
       setState(s => ({ ...s, stations, loading: false }))
     } catch (e) {
       if (isSuperseded(e)) return
-      showError(`加载失败: ${e}`)
+      showError(t('loadFailed', { error: localize(e) }))
       setState(s => ({ ...s, loading: false }))
     }
   }, [showError])
@@ -72,7 +90,7 @@ function App() {
       setState(s => ({ ...s, stations, loading: false }))
     } catch (e) {
       if (isSuperseded(e)) return
-      showError(`搜索失败: ${e}`)
+      showError(t('searchFailed', { error: localize(e) }))
       setState(s => ({ ...s, loading: false }))
     }
   }, [showError])
@@ -82,7 +100,7 @@ function App() {
       const stations = await invoke<StationView[]>('get_favorites', { filter })
       setState(s => ({ ...s, favorites: stations }))
     } catch (e) {
-      showError(`加载收藏失败: ${e}`)
+      showError(t('loadFavoritesFailed', { error: localize(e) }))
     }
   }, [showError])
 
@@ -117,7 +135,7 @@ function App() {
         }
       })
     } catch (e) {
-      showError(`操作失败: ${e}`)
+      showError(t('actionFailed', { error: localize(e) }))
     }
   }, [showError])
 
@@ -139,22 +157,22 @@ function App() {
   }, [showError])
 
   const playStation = useCallback(
-    (station: StationView) => act(() => invoke('play_station', { station }), '播放失败'),
+    (station: StationView) => act(() => invoke('play_station', { station }), t('playFailed')),
     [act],
   )
 
   const playPause = useCallback(
-    () => act(() => invoke('play_pause'), '操作失败'),
+    () => act(() => invoke('play_pause'), t('actionFailed')),
     [act],
   )
 
   const stopPlayback = useCallback(
-    () => act(() => invoke('stop_playback'), '停止失败'),
+    () => act(() => invoke('stop_playback'), t('stopFailed')),
     [act],
   )
 
   const playRandom = useCallback(
-    (list: 'browse' | 'favorites') => act(() => invoke('play_random', { list }), '随机播放失败'),
+    (list: 'browse' | 'favorites') => act(() => invoke('play_random', { list }), t('randomFailed')),
     [act],
   )
 
@@ -169,7 +187,7 @@ function App() {
       }
       setState(s => (s.player ? { ...s, player: { ...s.player, volume: applied } } : s))
     } catch (e) {
-      showError(`音量调整失败: ${e}`)
+      showError(t('volumeFailed', { error: localize(e) }))
     }
   }, [showError])
 
@@ -228,7 +246,7 @@ function App() {
           unlistenRef.current = fn
         }
       })
-      .catch(err => showError(`播放状态监听失败：${err}`))
+      .catch(err => showError(t('listenFailed', { error: localize(err) })))
     return () => {
       disposed = true
       unlisten?.()
@@ -283,7 +301,7 @@ function App() {
     try {
       await getCurrentWindow().close()
     } catch (e) {
-      showError(`关闭失败: ${e}`)
+      showError(t('closeFailed', { error: localize(e) }))
     }
   }, [showError])
 
@@ -303,7 +321,7 @@ function App() {
                     <svg className={`panel-caret ${collapsed.stations ? 'closed' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M6 9l6 6 6-6" />
                     </svg>
-                    <span className="panel-title">电台</span>
+                    <span className="panel-title">{t('tabStations')}</span>
                     <span className="panel-count">{state.stations.length}</span>
                   </button>
                   <div className="panel-controls">
@@ -315,7 +333,7 @@ function App() {
                       <input
                         type="search"
                         className="search-input"
-                        placeholder="搜索电台名…"
+                        placeholder={t('searchPlaceholder')}
                         defaultValue=""
                         onChange={handleSearch}
                         onKeyDown={handleSearchKey}
@@ -328,7 +346,7 @@ function App() {
                   {state.loading ? (
                     <div className="loading"><div className="spinner" /></div>
                   ) : state.stations.length === 0 ? (
-                    <p className="panel-empty">没有找到电台，试试其他关键词或检查网络连接</p>
+                    <p className="panel-empty">{t('emptyStationsHint')}</p>
                   ) : (
                     <StationGrid
                       stations={state.stations}
@@ -350,7 +368,7 @@ function App() {
                   <svg className={`panel-caret ${collapsed.favorites ? 'closed' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M6 9l6 6 6-6" />
                   </svg>
-                  <span className="panel-title">收藏</span>
+                  <span className="panel-title">{t('tabFavorites')}</span>
                   <span className="panel-count">{state.favorites.length}</span>
                 </button>
                 <div className="panel-controls">
@@ -362,7 +380,7 @@ function App() {
                     <input
                       type="search"
                       className="search-input"
-                      placeholder="筛选收藏…"
+                      placeholder={t('filterFavoritesPlaceholder')}
                       defaultValue=""
                       onChange={handleFavFilter}
                       onKeyDown={handleFavKey}
@@ -373,7 +391,7 @@ function App() {
               <div className="panel-body-inner" hidden={collapsed.favorites}>
 
                   {state.favorites.length === 0 ? (
-                    <p className="panel-empty">还没有收藏，点击电台卡片右上角的星标即可添加</p>
+                    <p className="panel-empty">{t('emptyFavoritesHint')}</p>
                   ) : (
                     <StationGrid
                       stations={state.favorites}

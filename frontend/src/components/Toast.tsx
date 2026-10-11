@@ -1,9 +1,13 @@
+import { useI18n } from '../i18n/useI18n'
+
 interface ToastProps {
   message: string
   onClose: () => void
 }
 
 export function Toast({ message, onClose }: ToastProps) {
+  const { t } = useI18n()
+
   return (
     <div className="toast" role="alert">
       <span>{message}</span>
@@ -19,7 +23,7 @@ export function Toast({ message, onClose }: ToastProps) {
           fontSize: '18px',
           lineHeight: 1,
         }}
-        aria-label="关闭"
+        aria-label={t('close')}
       >
         ×
       </button>

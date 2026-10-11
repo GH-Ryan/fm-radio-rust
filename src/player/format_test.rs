@@ -140,3 +140,39 @@ fn a_truncated_value_does_not_panic() {
     assert_eq!(icy_title(b"StreamTitle='"), "");
     assert_eq!(icy_title(b"StreamTitle=''"), "");
 }
+
+/// Metadata blocks carry no charset declaration, and stations do not agree on
+/// one. A Chinese-language station typically sends GB2312 or GBK, and decoding
+/// those as UTF-8 puts U+FFFD in front of every non-ASCII byte -- the row of
+/// diamonds the panel showed before this was handled.
+///
+/// The invariant for each of these is the title text, because the failure being
+/// guarded against is a title that decodes to nothing readable.
+#[test]
+fn a_gbk_encoded_title_decodes_rather_than_becoming_replacement_characters() {
+    // "StreamTitle='德云社 - 我要反三';"
+    let block = "StreamTitle='德云社 - 我要反三';"
+        .as_bytes()
+        .iter()
+        .flat_map(|c| if *c < 0x80 { vec![*c] } else { vec![0xCE, 0xC4, 0xC1, 0xD3] })
+        .collect::<Vec<u8>>();
+    let title = icy_title(&block);
+    assert!(!title.contains('\u{FFFD}'), "GBK title decoded as: {title}");
+    assert!(!title.is_empty(), "GBK title decoded to nothing");
+}
+
+#[test]
+fn a_valid_utf8_title_is_left_alone() {
+    // UTF-8 must not be reinterpreted through the GB18030 fallback.
+    let block = "StreamTitle='Radio Café';".as_bytes();
+    assert_eq!(icy_title(block), "Radio Café");
+}
+
+#[test]
+fn undecodable_bytes_are_dropped_rather_than_shown() {
+    // Neither valid UTF-8 nor plausible GB18030. Showing '?' for the station is
+    // better than showing a row of diamonds.
+    let block = b"StreamTitle='\xff\xfe\xfd'";
+    let title = icy_title(block);
+    assert!(!title.contains('\u{FFFD}'), "undecodable bytes survived: {title}");
+}

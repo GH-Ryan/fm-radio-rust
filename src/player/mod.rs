@@ -36,7 +36,7 @@ pub struct PlayerState {
     pub station: Option<Station>,
     pub title: String,
     pub backend: String,
-    pub error: Option<String>,
+    pub error: Option<crate::error::AppError>,
     pub volume: f32,
     pub paused: bool,
     pub playing_key: Option<String>,
@@ -165,7 +165,7 @@ impl Player {
                 if *cancel_flag.lock().unwrap() {
                     state.error = None;
                 } else {
-                    state.error = Some(e.to_string());
+                    state.error = Some(e.into());
                     state.playing = false;
                     state.playing_key = None;
                 }
@@ -549,8 +549,19 @@ where
 }
 
 /// Pulls `StreamTitle` out of a raw ICY metadata block.
+///
+/// The block carries no charset declaration, and stations do not agree on one:
+/// plenty of them send GB2312 or GBK, which is what a Chinese-language station
+/// almost always does. Decoding those as UTF-8 replaces every bad byte with
+/// U+FFFD, so the panel showed a run of diamonds in front of the part that
+/// happened to be ASCII. Valid UTF-8 is tried first because a station that is
+/// sending UTF-8 must not be reinterpreted, and GB18030 -- a superset of GBK
+/// and GB2312 that is also correct for ASCII -- is the fallback.
 fn icy_title(block: &[u8]) -> String {
-    let text = String::from_utf8_lossy(block);
+    let text = match std::str::from_utf8(block) {
+        Ok(s) => s.to_string(),
+        Err(_) => encoding_rs::GB18030.decode(block).0.into_owned(),
+    };
     for part in text.split(';') {
         let Some((key, value)) = part.split_once('=') else {
             continue;
@@ -567,7 +578,14 @@ fn icy_title(block: &[u8]) -> String {
             value = rest.strip_suffix('\'').unwrap_or("");
         }
         // \' is just ' in a Rust literal, so only the \\' escape needs stripping.
-        return value.replace("\\'", "'").trim().to_string();
+        // U+FFFD is dropped as well: a block that is neither valid UTF-8 nor
+        // plausible GB18030 would otherwise reach the panel as a row of
+        // diamonds, which is worse than no title at all.
+        return value
+            .replace("\\'", "'")
+            .replace('\u{FFFD}', "")
+            .trim()
+            .to_string();
     }
     String::new()
 }

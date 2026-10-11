@@ -221,18 +221,28 @@ body {
   overflow: hidden;
 }
 
-.station-card-image {
+/* Shared by the list tiles and the player panel: both draw the same layered
+   cover, so the rules live here rather than being scoped to one of them.
+   Scoping them to .station-card-image silently broke the player, where the
+   logo showed at full opacity over the fallback underneath it. */
+.station-card-image,
+.player-artwork {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: 100%;
   overflow: hidden;
   transition: transform 0.3s;
 }
 
-.station-card-image img {
+/* Sized per container: the card fills its header, the player tile is fixed. */
+.station-card-image {
+  width: 100%;
+  height: 100%;
+}
+
+.station-card-image img,
+.player-artwork img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -243,21 +253,29 @@ body {
 
 /* Transparent rather than hidden: an image that is not rendered is never
    fetched, so hiding it would leave the fallback underneath showing forever. */
-.station-card-image img.art-pending {
+.station-card-image img.art-pending,
+.player-artwork img.art-pending {
   opacity: 0;
 }
 
-.station-card-image img.art-loaded {
+.station-card-image img.art-loaded,
+.player-artwork img.art-loaded {
   opacity: 1;
 }
 
-/* Shown until the logo loads, and left in place when it never does. */
+/* Shown until the logo loads, and left in place when it never does. The
+   player tile is smaller, so the glyph scales with it rather than overflowing
+   a 48px box. */
 .station-art-fallback {
   font-size: 30px;
   font-weight: 700;
   line-height: 1;
   color: rgba(255, 255, 255, 0.82);
   user-select: none;
+}
+
+.player-artwork .station-art-fallback {
+  font-size: 20px;
 }
 
 .station-card:hover .station-card-image {
@@ -463,6 +481,19 @@ body {
   border-radius: 6px;
   background: var(--bg);
   flex-shrink: 0;
+}
+
+/* No station loaded at all, so there is nothing to derive a colour from.
+   StationArt paints its own background from the station key; this one has no
+   station, which is why it stays as a plain tile. */
+.player-artwork-empty {
+  color: var(--fg-muted);
+}
+
+.player-artwork-empty svg {
+  width: 24px;
+  height: 24px;
+  opacity: 0.5;
 }
 
 .player-details {

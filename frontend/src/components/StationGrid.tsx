@@ -1,6 +1,7 @@
 import { StationView } from '../types'
 import { MetaIcons } from './MetaIcons'
 import { StationArt } from './StationArt'
+import { useI18n } from '../i18n/useI18n'
 
 interface StationGridProps {
   stations: StationView[]
@@ -10,6 +11,8 @@ interface StationGridProps {
 }
 
 export function StationGrid({ stations, playingKey, onPlay, onToggleFavorite }: StationGridProps) {
+  const { t } = useI18n()
+
   return (
     <div className="station-grid" role="list">
       {stations.map((station) => (
@@ -26,7 +29,7 @@ export function StationGrid({ stations, playingKey, onPlay, onToggleFavorite }: 
               <button
                 className="station-card-play-btn"
                 onClick={(e) => { e.stopPropagation(); onPlay(station); }}
-                aria-label={playingKey === station.key ? '暂停' : '播放'}
+                aria-label={playingKey === station.key ? t('cardPause') : t('cardPlay')}
               >
                 {playingKey === station.key ? (
                   <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
@@ -43,7 +46,7 @@ export function StationGrid({ stations, playingKey, onPlay, onToggleFavorite }: 
             <button
               className={`station-card-favorite ${station.favorite ? 'active' : ''}`}
               onClick={(e) => { e.stopPropagation(); onToggleFavorite(station); }}
-              aria-label={station.favorite ? '取消收藏' : '收藏'}
+              aria-label={station.favorite ? t('unfavorite') : t('favorite')}
               aria-pressed={station.favorite}
             >
               <svg viewBox="0 0 24 24" fill={station.favorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2}>
