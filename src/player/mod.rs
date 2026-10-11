@@ -38,10 +38,9 @@ pub struct PlayerState {
     /// A stable code describing how playback is being produced, not the text the
     /// user reads: `"connecting"`, `"internal_decode"`, or empty for neither.
     ///
-    /// This used to hold the finished sentence, which meant the backend decided
-    /// what language the UI was in. It carries a code for the same reason
-    /// `AppError` does -- so the wording can change, or be translated, without
-    /// the backend knowing anything about it.
+    /// A code rather than a finished sentence, for the same reason `AppError`
+    /// carries one: the wording can then change, or be translated, without the
+    /// backend knowing anything about it.
     pub backend: String,
     /// Sample rate in Hz, present only when `backend` is `"internal_decode"`.
     /// Split out as a number so the UI can place it inside its own sentence

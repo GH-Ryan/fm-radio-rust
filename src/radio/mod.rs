@@ -10,9 +10,8 @@ const MIRROR_HOST: &str = "all.api.radio-browser.info";
 
 // Radio Browser asks clients to identify themselves rather than impersonate a
 // browser: they publish no rate limit, but they do ask for a descriptive
-// User-Agent so they can tell real apps apart from scrapers. This one used to
-// claim to be Safari on Linux via wails.io, which was both wrong -- the app is
-// Tauri on Windows -- and left the project with no way to identify callers.
+// User-Agent so they can tell real apps apart from scrapers. This one names the
+// app and points at the repository, so they have someone to contact.
 const USER_AGENT: &str = concat!(
     "FMRadio/",
     env!("CARGO_PKG_VERSION"),
@@ -290,11 +289,10 @@ impl Station {
 
     /// The codec as shown on a card: normalised, and language-neutral.
     ///
-    /// Returns an empty string when the station declares no codec. This used to
-    /// return the sentence "未知格式", which meant a Chinese word travelled to
-    /// the frontend as data and surfaced in an English tooltip. The UI already
-    /// marks an unknown codec itself -- MetaIcons renders `?` when
-    /// `codecKnown` is false -- so there is nothing for the backend to say here.
+    /// Returns an empty string when the station declares no codec, so that no
+    /// text travels to the frontend as data and surfaces in a tooltip in the
+    /// wrong language. The UI marks the unknown case itself: MetaIcons renders
+    /// `?` when `codecKnown` is false.
     pub fn codec_name(&self) -> String {
         let codec = self.codec.trim().to_uppercase();
         match codec.as_str() {

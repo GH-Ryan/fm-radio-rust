@@ -2,11 +2,10 @@ use serde::{Deserialize, Serialize};
 
 /// Stable identifiers for every failure the backend can report.
 ///
-/// The web layer used to recognise a specific failure by looking for its
-/// Chinese wording in the error string, which only works while the wording
-/// never changes and only in one language. Carrying a code alongside the
-/// message means the UI can branch on what went wrong, translate what it
-/// shows, and neither breaks when the copy is edited.
+/// The code is what the UI branches on and translates; the message is only a
+/// fallback for a code the frontend does not know yet. Recognising a failure by
+/// matching its wording would tie the two sides to the same string and to one
+/// language, so the wording could never be edited or translated.
 ///
 /// The values are part of the contract with the frontend and must not be
 /// renamed without updating frontend/src/i18n/backendErrors.ts.

@@ -32,8 +32,8 @@ pub struct StationView {
     ///
     /// Carried separately because `codec` holds the label to display, and the
     /// label for a station that named none is a sentence rather than data.
-    /// Comparing against that sentence is what the UI used to do, which breaks
-    /// the moment the wording changes or the backend speaks another language.
+    /// Matching on that sentence would tie the UI to the exact wording and to
+    /// one language; a boolean does not.
     pub codec_known: bool,
     pub bitrate: u32,
     pub votes: u32,

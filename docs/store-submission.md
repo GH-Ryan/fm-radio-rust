@@ -1,11 +1,19 @@
 # Microsoft Store 提交材料
 
-包名 / Package identity: `com.fmradio.app`
-发布者 / Publisher: **Ray Digital**
-Seller ID: `96541170`
-隐私政策 / Privacy policy: `https://gh-ryan.github.io/fm-radio-rust/privacy/`
+| | |
+| --- | --- |
+| Store ID | `9NCZJDND65GH` |
+| 包标识 / Package identity | `RayDigital.FM` |
+| 发布者 DN / Publisher | `CN=3795FA3D-F467-470E-B67A-65A8BC923C67` |
+| 发布者显示名 / Publisher display name | **Ray Digital** |
+| Seller ID | `96541170` |
+| 隐私政策 / Privacy policy | `https://gh-ryan.github.io/fm-radio-rust/privacy/` |
+| Store 链接 | `https://apps.microsoft.com/detail/9NCZJDND65GH` |
 
-素材在 `store-assets/`。截图是中文界面（系统语言为中文）；英文 listing 需重新拍摄或改系统语言后重拍。
+前三项由 Partner Center 分配，可在产品的 **Product identity** 页查到，且必须与
+`Package.appxmanifest` 里的 `Identity` 完全一致，否则包校验失败。
+
+素材在 `store-assets/`。截图分中英两套（`-zh` / `-en`），分别上传到对应语言的 listing。
 
 ## 0. 预览
 
@@ -100,30 +108,37 @@ Station directory provided by Radio Browser.
 
 ## 6. 年龄分级 / Age ratings
 
-问卷每题都必填。本应用的答案：
+IARC 问卷分两步。第一步选 App Type，三选一：
+
+| 选项 | 适用 |
+| --- | --- |
+| Game | 游戏或博彩类 |
+| Social or Communication | 主要用途是社交或通讯 |
+| **All Other App Types** | **本应用选这项** |
+
+选定后才会渲染后续题目，全部选最低档：
 
 | 题 | 答 |
 | --- | --- |
-| 使用频率 / Frequency | 不常使用 / Infrequent |
-| 血腥、暴力、恐怖元素 / Violence | 无 / None |
-| 恐怖、惊悚元素 / Fear | 无 / None |
-| 暴力、伤害、血腥 / Gore | 无 / None |
-| 裸露或暗示性内容 / Nudity | 无 / None |
-| 性内容或暗示 / Sexuality | 无 / None |
-| 脏话 / Profanity | 无 / None |
-| 酒精、烟草、毒品 / Mature content | 无 / None |
-| 用户互动 / User interaction | 无 —— 应用内无聊天、无 UGC 发布 |
-| 用户生成内容 / User-generated content | 无 —— 只读目录，不发布内容 |
-| 位置信息 / Location | 否 / No |
-| 应用内购买 / In-app purchases | 无 / None |
-| 广告 / Ads | 无 / None |
+| Downloaded App —— 包内是否含分级相关内容 | No |
+| User Content Sharing —— 用户间能否交换内容 | No |
+| Online Content —— 是否展示或推广非初始下载内的内容 | No |
+| Promotion or Sale of Age-Restricted Products | No |
+| 是否与他人共享用户精确位置 | No |
+| 是否允许购买数字商品 | No |
+| 是否含现金奖励、礼品卡、play-to-earn、加密货币或 NFT | No |
+| 是否为浏览器或搜索引擎 | No |
+| 是否为新闻或教育类产品 | No |
+| 是否使用评级机构直接颁发的评级 / 是否通过实体介质分发 | No |
 
-若问卷出现"是否会收集用户数据"一题，选 **否 / No**：无账号、无标识符、无遥测，用户数据仅存本地。
+另有一个独立选项「I'm ready to complete the IARC questionnaire」需选中，否则题目不渲染。
 
 ---
 
-## 待解决 / Open issues
+## 提交状态
 
-- **`ms-resource` 本地化写法**：清单里显示名仍是字面量「FM 电台」，中英文未区分。三种写法都过不了 makeappx schema，尚未解决。
-- **英文截图**：当前素材为中文界面。提交英文 listing 时需重拍，否则中英 listing 混用中文截图。
-- **Publisher DN**：清单里是 `CN=GH-Ryan`，与商店发布者 `Ray Digital` 不同名。提交时需确认 Partner Center 是否接受（商店分发会由微软重签）。
+Submission 1 已于 2026-10-11 提交，状态 **In certification**（通常数小时，最长 3 个工作日，
+通过后自动发布）。
+
+CI/CD 见 `.github/workflows/release.yml`，触发方式为推送 `v*` 标签。前置条件是
+Partner Center 里授予 Entra 应用 Manager 角色，并配置 4 个仓库 Secrets —— 尚未完成。
