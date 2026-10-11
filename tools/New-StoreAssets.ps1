@@ -136,6 +136,7 @@ $square = [ordered]@{
   'Square44x44Logo.png'   = 44
   'Square71x71Logo.png'   = 71
   'Square150x150Logo.png' = 150
+  'Square300x300Logo.png' = 300
   'Square310x310Logo.png' = 310
   'LockScreenLogo.png'    = 24
 }
