@@ -1,35 +1,51 @@
 # FM 电台
 
-Radio Browser 桌面客户端。Tauri + React，自带流式解码，不依赖外部播放器。
+[![Store](https://img.shields.io/badge/Microsoft%20Store-Ray%20Digital-0078D4)](https://apps.microsoft.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-依赖（Arch）：
+![电台列表](docs/store-assets/Screenshot-01-browse-zh.png)
 
-    webkit2gtk-4.1 gtk3 libsoup3 javascriptcoregtk-4.1 libappindicator-gtk3 librsvg
+Radio Browser 桌面客户端。Tauri 2 + Rust，自带流式解码，不依赖外部播放器。
 
-构建前端还需要 Node.js。
+上架 Microsoft Store。Windows only。
+
+## 特性
+
+- 浏览、搜索 Radio Browser 全量电台目录
+- 收藏，本地保存
+- MP3 / AAC / AAC+ / FLAC / WAV 流式播放
+- ICY 元数据（电台名、曲名）
+- 中英双语，跟随系统语言
+- 无账号、无遥测、无广告
 
 ## 构建
 
-    make build
+Windows 见 [BUILD-WINDOWS.md](BUILD-WINDOWS.md)。
 
-产物 `target/release/fm-radio`。`build` 先跑 `npm run build`，前端在编译期嵌进二进
-制，所以 `dist/` 里的旧文件会被静默打进包。`custom-protocol` feature 不能省，Tauri 靠
-它决定读打包资源还是连 devUrl，缺了会连 `localhost:1420` 然后退出。
+前端要先构建 —— Tauri 编译期把 `dist/` 整个嵌进二进制：
 
-排版迭代用 `make dev-run`。release profile 开了 fat LTO 和 `codegen-units = 1`，改一行
-CSS 也要两分钟。
+```sh
+cd frontend && npm install && npm run build && cd ..
+cargo build --release --features custom-protocol
+```
 
-    make size
-    make clean
+`custom-protocol` 不能省，否则运行时会去连 `localhost:1420` 然后退出。
 
 ## 测试
 
-    make test    # cargo test
-    make lint    # cargo fmt --check + clippy -D warnings
+```sh
+cargo test
+cargo clippy -- -D warnings
+cargo fmt -- --check
+```
 
 ## 格式
 
-MP3 / AAC / Ogg Vorbis / FLAC / WAV。Opus 不支持，symphonia 0.5 没有 Opus 解码器。
+| 格式 | |
+| --- | --- |
+| MP3 / AAC / AAC+ / FLAC / WAV | ✅ |
+| Opus | symphonia 0.5 不带 Opus 解码器 |
+| Ogg Vorbis | 实测 Radio Browser 目录里仅 1.03% 的电台在用，且 Windows 桌面版系统解码器不含 Vorbis |
 
 ## License
 
