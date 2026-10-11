@@ -49,39 +49,27 @@ Seller ID: `96541170`
 
 ### zh-CN
 
-FM 电台是一个简洁的在线广播客户端，收听世界各地的网络电台。
+全球网络电台，点开即听。
 
-• 浏览与搜索 —— 通过 Radio Browser 开放目录浏览数万个电台，可按台名、国家搜索
-• 直接播放 —— 流式播放，无需下载，不依赖外部播放器
-• 收藏 —— 常听的电台加入收藏，保存在本地，下次打开还在
-• 电台信息 —— 每张卡片显示台标、所在国家、编码格式和信号强度
-• 一键播放 —— 点一下就开始，随时暂停
+· 数万个电台，可按台名或国家搜索
+· 直接流式播放，无需下载，不依赖外部播放器
+· 收藏常听的电台，下次打开还在
+· 每张卡片显示台标、所在国家、编码格式和信号强度
+· 免费，无广告，无内购
 
-关于隐私
-
-应用没有账号，不收集任何个人信息，也不包含统计或广告代码。你的收藏和播放记录只保存在自己的设备上，不会被上传。搜索关键词会发送给 Radio Browser 的服务器以返回结果。
-
-界面语言跟随系统设置，支持简体中文和英文。
-
-免费，无广告，无内购。
+电台目录来自 Radio Browser 开放平台。
 
 ### en-US
 
-FM Radio is a straightforward internet radio client for listening to stations from around the world.
+Internet radio from around the world. Click and listen.
 
-• Browse and search — explore tens of thousands of stations through the open Radio Browser directory, searchable by station name or country
-• Play — streams directly, nothing to download, no external player required
-• Favourites — keep the stations you listen to often; they are saved locally and are there when you come back
-• Station details — every card shows the logo, country, codec, and signal strength
-• One-click playback — start listening straight away, pause just as fast
+· Tens of thousands of stations, searchable by name or country
+· Streams directly — nothing to download, no external player
+· Save favourites for next time
+· Every card shows the logo, country, codec, and signal strength
+· Free. No ads. No in-app purchases.
 
-About privacy
-
-The app has no accounts, collects no personal information, and contains no analytics or advertising code. Your favourites and listening history stay on your own device and are never uploaded. Search terms are sent to Radio Browser's servers so that it can return results.
-
-The interface follows your system language and supports English and Simplified Chinese.
-
-Free. No ads. No in-app purchases.
+Station directory provided by Radio Browser.
 
 ## 3. 截图说明 / Screenshot captions
 

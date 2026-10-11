@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  PRI configuration for resources.pri.
+
+  Two things here are load-bearing and were both arrived at the hard way.
+
+  The folder and resw indexers have to be used together. folder walks the tree
+  and derives the Language qualifier from each folder name, which is how
+  Strings\zh-CN\ and Strings\en-US\ are told apart. resw is what parses the
+  .resw files; without it they are indexed as opaque Path resources, so
+  ms-resource:AppName resolves to a file rather than a string. Neither indexer
+  alone produces usable strings.
+
+  Indexing starts at the project root rather than at a pri.resfiles manifest.
+  winapp generates that manifest listing only Assets\, and a list-driven index
+  loses the per-language candidates: every resource collapses to the config's
+  default language and the other translations are silently dropped.
+
+  There is deliberately no <packaging> element. autoResourcePackage makes
+  makepri reject the config outright on this SDK, and it is only needed to emit
+  separate per-language resource packages, which a single MSIX does not use.
+
+  Note for anyone editing the .resw files: an XML comment may not contain a
+  double hyphen. Doing so makes the file unparseable, and makepri reports
+  "PRI224: root node not found", which suggests a config problem and hides the
+  real one.
+-->
+<resources targetOsVersion="10.0.0" majorVersion="1">
+  <index root="\" startIndexAt="\">
+    <default>
+      <qualifier name="Language" value="en-US" />
+      <qualifier name="Contrast" value="standard" />
+      <qualifier name="Scale" value="100" />
+      <qualifier name="HomeRegion" value="001" />
+      <qualifier name="TargetSize" value="256" />
+      <qualifier name="LayoutDirection" value="LTR" />
+      <qualifier name="Theme" value="dark" />
+      <qualifier name="AlternateForm" value="" />
+      <qualifier name="DXFeatureLevel" value="DX9" />
+      <qualifier name="Configuration" value="" />
+      <qualifier name="DeviceFamily" value="Universal" />
+      <qualifier name="Custom" value="" />
+    </default>
+    <indexer-config type="folder" foldernameAsQualifier="true" filenameAsQualifier="true"
+                    qualifierDelimiter="." />
+    <indexer-config type="resw" convertDotsToSlashes="true" initialPath="" />
+    <indexer-config type="resjson" initialPath="" />
+  </index>
+</resources>

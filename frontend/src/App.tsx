@@ -23,6 +23,24 @@ interface AppState {
 function App() {
   const { t, locale } = useI18n()
 
+  // The window title is what the OS shows in Alt+Tab, on the taskbar, and in
+  // the window list. tauri.conf.json sets it once at build time, so without
+  // this an English user reads the Chinese product name in every one of those
+  // places while the titlebar inside the window reads "FM Radio".
+  //
+  // Set on the OS window rather than document.title: with a WebView the latter
+  // is the webview's own title and does not propagate to the window frame.
+  useEffect(() => {
+    const title = t('appTitle')
+    getCurrentWindow()
+      .setTitle(title)
+      .catch(() => {
+        // Denied by the capability list, or no window (a browser preview).
+        // Cosmetic either way, so it must not take the app down.
+      })
+    document.title = title
+  }, [t, locale])
+
   // A backend failure arrives as { code, message, detail? }. The code is stable
   // and decides what to show; the message is what the backend wrote in its own
   // language and is only used when the code has no translation yet.

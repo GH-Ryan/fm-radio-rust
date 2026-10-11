@@ -41,28 +41,58 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 ## 打 MSIX（Windows Store）
 
-走 `winapp`，不走 Tauri 自带的打包器 —— Tauri 只能出 EXE 和 MSI，而 MSI 上架需要
-自购代码签名证书。
+用仓库自带的脚本，**不要用 `winapp package`**：
 
 ```powershell
-# 1. 初始化 MSIX 清单和图标资产（只需一次）
-winapp init
+# 先构建前端，再构建 Rust —— Tauri 在 Rust 编译期把 dist/ 嵌进二进制，
+# 顺序反了就会打进旧前端，且不会有任何报错。
+cd frontend; npm.cmd install; npm.cmd run build; cd ..
+cargo build --release --features custom-protocol
 
-# 2. 生成开发用的自签证书（只需一次，之后复用同一个 pfx）
-winapp cert generate
-
-# 3. 打包 —— 必须用 --cert 复用已有证书
-winapp package --cert com.fmradio.app_cert.pfx --cert-password password
+# 打包（组装暂存目录 → makepri → makeappx → signtool）
+powershell -File tools\New-MsixPackage.ps1
 ```
 
-**不要用 `--generate-cert` 反复打包。** 它每次都新造一张证书，而 MSIX 部署要求签名
-证书在 `LocalMachine\Root` 受信任，换证书就得再提权装一次（UAC）。固定 pfx 只装一次。
+产物在 `msix\build\`。
 
-产物是 `.msix`，可直接安装测试：
+### 为什么不用 winapp package
 
-```powershell
-Add-AppxPackage .\com.fmradio.app_0.1.0.0_x64.msix
-```
+winapp 打包时会自己生成 `priconfig.xml`，用 `startIndexAt=".\pri.resfiles"` 一个
+**文件清单**限定索引范围，而那份清单只列了 `Assets\`。清单驱动的索引会丢弃
+`Strings\` 里的**逐语言候选** —— 所有字符串资源塌缩成配置里的默认语言，其余翻译
+静默消失。包照样打得出来、校验也过，只是 `ms-resource:AppName` 解析不到任何东西，
+开始菜单回退成原始标识符。
+
+`tools/New-MsixPackage.ps1` 改为手工组装并调用 `makepri` + `makeappx`，配置在
+`tools/priconfig.xml`。
+
+### makepri 的三个坑
+
+1. **`folder` 和 `resw` 两个 indexer 必须并存。** `folder` 负责遍历目录并从文件夹名
+   推导语言限定符（`Strings\zh-CN\`），`resw` 负责解析 `.resw`。缺 `resw` 时文件会被
+   当成普通的 Path 资源，`ms-resource:AppName` 解析成一个文件名而不是字符串。
+2. **不能用 `pri.resfiles` 清单**，必须从项目根索引，否则多语言候选丢失。
+3. **`.resw` 的 XML 注释里不能出现 `--`。** 写了整个文件就解析失败，而 makepri 报的是
+   `PRI224: root node not found` —— 指向配置问题，和真实原因毫无关系。
+
+### `$targetnametoken$`
+
+清单里 `Executable="$targetnametoken$.exe"` 是 winapp 的占位符，它在打包时替换成
+真实文件名，**makeappx 不认**，直接用会报：
+
+> The file name "$targetnametoken$.exe" ... doesn't exist in the package.
+
+`New-MsixPackage.ps1` 在暂存副本上把它替换成 `fm-radio`。
+
+### 本地化包显示名
+
+开始菜单、设置 → 应用里显示的名字来自 **包清单**，不是应用内的 i18n：
+
+- `Strings\zh-CN\Resources.resw` → `FM 电台`
+- `Strings\en-US\Resources.resw` → `FM Radio`
+- 清单写 `ms-resource:AppName` / `ms-resource:AppDescription`
+
+文件夹名必须和清单里 `<Resource Language="..."/>` 的值一致，否则查找会静默回退到默认。
 
 ### 证书信任只认 LocalMachine
 
