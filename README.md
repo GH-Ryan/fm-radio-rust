@@ -101,7 +101,86 @@ cd src-tauri && cargo build --release --features custom-protocol && cd ..
 
 产物在 `msix\build\`，上传到 Partner Center 的「管理程序包」。版本号必须高于已发布版本。
 
-商店文案与素材清单见 [docs/store-submission.md](docs/store-submission.md)。
+## 商店发布信息
+
+### 身份
+
+| 项 | 值 |
+| --- | --- |
+| Store ID | `9NCZJDND65GH` |
+| 包标识 / Package identity | `RayDigital.FM` |
+| 发布者 DN / Publisher | `CN=3795FA3D-F467-470E-B67A-65A8BC923C67` |
+| 发布者显示名 / Publisher display name | Ray Digital |
+| Seller ID | `96541170` |
+| 隐私政策 | <https://gh-ryan.github.io/fm-radio-rust/privacy/> |
+| Store 链接 | <https://apps.microsoft.com/detail/9NCZJDND65GH> |
+
+前三项由 Partner Center 分配，必须与 `msix/Package.appxmanifest` 里的 `Identity` 完全一致，
+否则包校验失败。
+
+### 素材
+
+| `assets/`（上传到 Store listing） | `msix/Assets/`（打进包，Windows 从包内读） |
+| --- | --- |
+| `Screenshot-0?-*-zh.png` / `-en.png` | `StoreLogo.png` |
+| `Square300x300Logo.png` | `Square44x44Logo.png`（任务栏） |
+| | `Square71x71Logo.png` |
+| | `Square150x150Logo.png` |
+| | `Square310x310Logo.png`（也可上传 listing） |
+| | `LockScreenLogo.png` |
+| | `Wide310x150Logo.png` |
+| | `SplashScreen.png` |
+
+截图分中英两套，分别上传到对应语言的 listing，两套不能混用。
+`src-tauri/icons/` 是第三类 —— Tauri 应用图标，`icon.ico` 编译进 exe 决定窗口与任务栏图标，
+`icon-1024.png` 是以上所有素材的生成源。
+
+### 文案
+
+| 语言 | 名称 |
+| --- | --- |
+| zh-CN | FM 电台 |
+| en-US | FM Radio |
+
+**zh-CN 描述**
+
+```
+全球网络电台，点开即听。
+
+· 数万个电台，可按台名或国家搜索
+· 直接流式播放，无需下载，不依赖外部播放器
+· 收藏常听的电台，下次打开还在
+· 每张卡片显示台标、所在国家、编码格式和信号强度
+· 免费，无广告，无内购
+
+电台目录来自 Radio Browser 开放平台。
+```
+
+**en-US 描述**
+
+```
+Internet radio from around the world. Click and listen.
+
+· Tens of thousands of stations, searchable by name or country
+· Streams directly — nothing to download, no external player
+· Save favourites for next time
+· Every card shows the logo, country, codec, and signal strength
+· Free. No ads. No in-app purchases.
+
+Station directory provided by Radio Browser.
+```
+
+**截图说明**（上限 200 字符）
+
+| # | zh-CN | en-US |
+| --- | --- | --- |
+| 1 | 浏览电台目录，每张卡片显示台标、所在国家、编码格式和信号强度。 | Browsing the station directory. Every card shows the logo, country, codec, and signal strength. |
+| 2 | 正在播放，底部播放条显示电台名与采样率，可收藏、暂停、调节音量。 | Now playing. The player bar shows the station name and sample rate, with favourite, pause, and volume. |
+
+**关键词**
+
+- zh-CN：`电台,广播,收音机,网络电台,在线广播,音乐,音乐播放器,Radio Browser`
+- en-US：`radio,broadcast,internet radio,online radio,music,music player,stream,Radio Browser`
 
 ## 技术栈
 
