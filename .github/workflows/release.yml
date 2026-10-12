@@ -48,6 +48,13 @@ jobs:
   release:
     runs-on: windows-latest
 
+    # GitHub's default job limit is six hours. Certification routinely takes
+    # longer than that, and msstore publish waits on the Store rather than
+    # returning as soon as the upload lands, so an unset timeout turns a slow
+    # submission into a job killed at the ceiling with no diagnostic. The build
+    # itself takes a few minutes; the rest of the budget is the Store.
+    timeout-minutes: 90
+
     env:
       # Partner Center ID for FM 电台, shown on the product's identity page.
       PRODUCT_ID: 9NCZJDND65GH
@@ -165,13 +172,32 @@ jobs:
 
       - name: Publish to the Store
         shell: pwsh
+        # Bounded separately from the job, so a publish that never returns is
+        # reported as the publish timing out rather than as the whole run
+        # hitting its ceiling after a successful build.
+        timeout-minutes: 45
         run: |
           $msix = (Get-ChildItem msix/build/*.msix | Select-Object -First 1).FullName
           Write-Host "Uploading $msix"
           msstore publish $msix -id $env:PRODUCT_ID
+
+      # Runs whether or not publish succeeded, because "did the upload land?"
+      # is the question a timed-out publish leaves open. submission status
+      # answers it without polling, unlike submission poll.
+      - name: Report submission status
+        if: always()
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          msstore submission status $env:PRODUCT_ID
 
       # Deliberately no listing/metadata step here. Store listing text and
       # screenshots are not carried in the package, and the metadata endpoint
       # replaces the whole listing document rather than patching it, so a
       # mistake there silently drops fields. It gets its own workflow once there
       # is a baseline metadata.json to diff against.
+      #
+      # That split is not just preference. msstore publish deletes any pending
+      # draft and recreates it from the last published submission, discarding
+      # metadata already staged there, so metadata edits have to be a separate
+      # step run after this one rather than batched with it.
