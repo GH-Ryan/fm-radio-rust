@@ -137,8 +137,12 @@ IARC 问卷分两步。第一步选 App Type，三选一：
 
 ## 提交状态
 
-Submission 1 已于 2026-10-11 提交，状态 **In certification**（通常数小时，最长 3 个工作日，
-通过后自动发布）。
+Submission 1 于 2026-10-11 提交，2026-10-12 通过认证并发布，公开链接
+<https://apps.microsoft.com/detail/9NCZJDND65GH> 可访问。
 
-CI/CD 见 `.github/workflows/release.yml`，触发方式为推送 `v*` 标签。前置条件是
+包校验只有一条 `runFullTrust` 警告，属预期：应用需要 `Windows.FullTrustApplication`
+入口点才能运行，这是桌面应用在 MSIX 下的正常形态。
+
+后续更新走 CI：`.github/workflows/release.yml`，触发方式为推送 `v*` 标签。前置条件是
 Partner Center 里授予 Entra 应用 Manager 角色，并配置 4 个仓库 Secrets —— 尚未完成。
+在完成之前，更新需在 Partner Center 手动上传包。

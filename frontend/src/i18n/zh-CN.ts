@@ -57,8 +57,9 @@ export const zhCN = {
   closeFailed: '关闭失败: {error}',
 
   // ---- 错误：后端返回 ----
-  // 这些由 Rust 侧产生。前端原样显示后端的中文文案，见 i18n/README.md
-  // 里"后端错误码"一节。
+  // 这些 key 不用于后端错误本身。后端发来的是稳定错误码，文案由
+  // backendErrors.ts 按当前语言给出，translateBackendError 查不到时回落到
+  // 后端附带的 message。`{message}` 就是这条回落路径。
   backendError: '{message}',
 
   // ---- 播放状态 ----
