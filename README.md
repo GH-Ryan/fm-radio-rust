@@ -1,4 +1,4 @@
-# FM 电台
+﻿# FM 电台
 
 [![Microsoft Store](https://img.shields.io/badge/Microsoft%20Store-0078D4?logo=microsoft&logoColor=white)](https://apps.microsoft.com/detail/9NCZJDND65GH)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -7,9 +7,9 @@ Radio Browser 的 Windows 桌面客户端 —— 浏览全球电台目录，直�
 
 Tauri 2 + Rust + React，音频由内置解码器流式处理，不依赖系统组件或外部播放器。
 
-![电台列表](docs/store-assets/Screenshot-01-browse-zh.png)
+![电台列表](assets/Screenshot-01-browse-zh.png)
 
-![正在播放](docs/store-assets/Screenshot-02-playing-zh.png)
+![正在播放](assets/Screenshot-02-playing-zh.png)
 
 ---
 

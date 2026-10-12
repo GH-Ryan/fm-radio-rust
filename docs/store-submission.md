@@ -1,4 +1,4 @@
-# Microsoft Store 提交材料
+﻿# Microsoft Store 提交材料
 
 | | |
 | --- | --- |
@@ -13,7 +13,7 @@
 前三项由 Partner Center 分配，可在产品的 **Product identity** 页查到，且必须与
 `Package.appxmanifest` 里的 `Identity` 完全一致，否则包校验失败。
 
-素材在 `store-assets/`。截图分中英两套（`-zh` / `-en`），分别上传到对应语言的 listing。
+素材在 `../assets/`。截图分中英两套（`-zh` / `-en`），分别上传到对应语言的 listing。
 
 ## 0. 预览
 
@@ -21,14 +21,14 @@
 
 | | |
 | --- | --- |
-| ![浏览电台目录](store-assets/Screenshot-01-browse-zh.png) | ![正在播放](store-assets/Screenshot-02-playing-zh.png) |
+| ![浏览电台目录](../assets/Screenshot-01-browse-zh.png) | ![正在播放](../assets/Screenshot-02-playing-zh.png) |
 | 1. 浏览 | 2. 正在播放 |
 
 **Logos**
 
 | 300×300 tile | 310×310 | 150×150 | Splash 620×300 |
 | --- | --- | --- | --- |
-| ![](store-assets/StoreLogo-300x300.png) | ![](store-assets/Square310x310Logo.png) | ![](store-assets/Square150x150Logo.png) | ![](store-assets/SplashScreen.png) |
+| ![](../assets/Square300x300Logo.png) | ![](../assets/Square310x310Logo.png) | ![](../assets/Square150x150Logo.png) | ![](../assets/SplashScreen.png) |
 
 > 上图仅供参考尺寸比例，实际提交的是这些文件本身，不是拼图。
 
@@ -37,7 +37,7 @@
 | 上传到 Store listing | 只打进 MSIX 包（Windows 从包内读取） |
 | --- | --- |
 | `Screenshot-*.png` | `Square44x44Logo.png`（任务栏） |
-| `StoreLogo-300x300.png` | `Square71x71Logo.png` |
+| `Square300x300Logo.png` | `Square71x71Logo.png` |
 | `Square310x310Logo.png`（可选，覆盖包内） | `Square150x150Logo.png` |
 | | `StoreLogo.png` |
 | | `LockScreenLogo.png` |
@@ -85,8 +85,8 @@ Station directory provided by Radio Browser.
 
 | # | 图片 | zh-CN | en-US |
 | --- | --- | --- | --- |
-| 1 | ![](store-assets/Screenshot-01-browse-zh.png) | 浏览电台目录，每张卡片显示台标、所在国家、编码格式和信号强度。 | Browsing the station directory. Every card shows the logo, country, codec, and signal strength. |
-| 2 | ![](store-assets/Screenshot-02-playing-zh.png) | 正在播放，底部播放条显示电台名与采样率，可收藏、暂停、调节音量。 | Now playing. The player bar shows the station name and sample rate, with favourite, pause, and volume. |
+| 1 | ![](../assets/Screenshot-01-browse-zh.png) | 浏览电台目录，每张卡片显示台标、所在国家、编码格式和信号强度。 | Browsing the station directory. Every card shows the logo, country, codec, and signal strength. |
+| 2 | ![](../assets/Screenshot-02-playing-zh.png) | 正在播放，底部播放条显示电台名与采样率，可收藏、暂停、调节音量。 | Now playing. The player bar shows the station name and sample rate, with favourite, pause, and volume. |
 
 ## 4. 关键词 / Keywords
 
