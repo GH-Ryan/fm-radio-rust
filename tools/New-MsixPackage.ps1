@@ -1,16 +1,14 @@
 param(
-  # Defaults to the repository root, derived from this script's location, so the
-  # same invocation works on a workstation and on a runner. An absolute default
-  # would silently point at a non-existent path in CI.
+  # Derived from the script's own location rather than hardcoded, so the
+  # repository can be cloned or moved without editing this line.
   [string]$Root = (Split-Path $PSScriptRoot -Parent),
-  # CI has no certificate in the tree: *.pfx is gitignored, and a dev
-  # certificate must not be committed anyway. The workflow generates one with
-  # the publisher subject the manifest declares and passes its path here.
+  # The default certificate lives beside this script rather than in the tree:
+  # *.pfx is gitignored, and a signing certificate must not be committed.
   [string]$CertPath = '',
   [string]$CertPassword = 'password',
-  # Every Store submission needs a strictly higher version than the last, so CI
-  # cannot ship whatever is committed. Rewritten on the staged copy only; the
-  # manifest in the tree keeps its placeholder.
+  # Every Store submission needs a strictly higher version than the last, and
+  # the version committed in the manifest is only a placeholder. Rewritten on
+  # the staged copy only, so the tree keeps its committed value.
   [string]$Version = ''
 )
 
@@ -38,9 +36,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Locate the newest installed SDK rather than pinning a version. A runner image
-# will not have the same SDK build as a workstation, and a hardcoded path turns
-# that into a missing-file error that reads like a broken script.
+# Locate the newest installed SDK rather than pinning a version. The SDK build
+# changes with Windows updates and differs between machines, and a hardcoded
+# path turns that into a missing-file error that reads like a broken script.
 $sdkRoot = 'C:\Program Files (x86)\Windows Kits\10\bin'
 $sdk = (Get-ChildItem $sdkRoot -Directory -ErrorAction SilentlyContinue |
         Where-Object { Test-Path (Join-Path $_.FullName 'x64\makepri.exe') } |

@@ -135,99 +135,54 @@ IARC 问卷分两步。第一步选 App Type，三选一：
 
 ---
 
-## 提交状态
+## 7. 发布更新
 
-Submission 1 于 2026-10-11 提交，2026-10-12 通过认证并发布，公开链接
-<https://apps.microsoft.com/detail/9NCZJDND65GH> 可访问。
+更新在本地完成，走 Partner Center 手动上传。
 
-包校验只有一条 `runFullTrust` 警告，属预期：应用需要 `Windows.FullTrustApplication`
-入口点才能运行，这是桌面应用在 MSIX 下的正常形态。
-
-后续更新走 CI：`.github/workflows/release.yml`，触发方式为推送 `v*` 标签。在下面的配置完成
-之前，更新需在 Partner Center 手动上传包。
-
----
-
-## 7. 启用自动更新（Entra 应用）
-
-尚未配置。完成后推送 `v*` 标签即可自动构建、打包并提交商店。
-
-工作流逻辑已就绪并对照官方文档校验过；缺的全是账号侧的配置，这三步都在浏览器里完成。
-
-### 7.1 关联 Entra 租户
-
-Partner Center → 设置 → 账户设置 → 租户管理。
-
-若列表为空，选「关联现有 Azure AD 租户」或「创建新租户」。个人开发者账号同样需要这一步，
-API 不接受 MSA 账号直接认证。
-
-### 7.2 注册 Entra 应用
-
-<https://entra.microsoft.com/> → 应用注册 → 新建注册。
-
-| 项 | 填什么 |
-| --- | --- |
-| 名称 | 随意，例如 `fm-radio-rust CI` |
-| 账户类型 | **仅组织目录中的账户** |
-| 重定向 URI | 留空 |
-
-注册后打开「证书和机密」→ 新建客户端机密 → **立即复制值**，页面关闭后不再显示。
-
-三个 ID 各处一处，不要混用：
-
-| 值 | 在哪找 | 用途 |
-| --- | --- | --- |
-| 租户 ID | 应用注册页「概述」→ 目录(租户) ID | `AZURE_AD_TENANT_ID` |
-| 应用程序(客户端) ID | 「概述」→ 应用程序 ID | `AZURE_AD_APPLICATION_CLIENT_ID` |
-| 客户端机密值 | 「证书和机密」→ 新建后显示一次 | `AZURE_AD_APPLICATION_SECRET` |
-| Seller ID | Partner Center → 设置 → 开发者设置 → 卖方 ID | `SELLER_ID`（本项目为 `96541170`） |
-
-### 7.3 在 Partner Center 授权
-
-Partner Center → 设置 → 用户管理 → 添加用户。
-
-| 项 | 填什么 |
-| --- | --- |
-| 电子邮件 | 填 7.2 的**应用程序(客户端) ID** —— 此处接受 ID 而非邮箱 |
-| 类型 | Microsoft Entra 应用程序 |
-| 角色 | **Manager** |
-
-角色低于 Manager 会在 `msstore reconfigure` 阶段报权限错误。
-
-### 7.4 配置仓库 Secrets
-
-仓库 → Settings → Secrets and variables → Actions → New repository secret。
-
-四个名称必须完全一致，工作流按名引用：
-
-```
-AZURE_AD_TENANT_ID
-AZURE_AD_APPLICATION_CLIENT_ID
-AZURE_AD_APPLICATION_SECRET
-SELLER_ID
-```
-
-### 7.5 验证
+### 7.1 构建
 
 ```powershell
-msstore reconfigure --tenantId <T> --sellerId 96541170 --clientId <C> --clientSecret <S>
-msstore apps get 9NCZJDND65GH
+cd frontend; npm.cmd install; npm.cmd run build; cd ..
+cargo build --release --features custom-protocol
 ```
 
-`apps get` 能返回产品详情即配置正确。随后推送标签：
+前端必须先于 Rust，否则打进旧前端且不报错。详见 [BUILD-WINDOWS.md](../BUILD-WINDOWS.md)。
 
-```bash
-git tag v0.1.1.0
-git push origin v0.1.1.0
+### 7.2 打包
+
+版本号必须**严格高于**已发布版本。当前已发布 `0.1.0.0`。
+
+```powershell
+.\tools\New-MsixPackage.ps1 -Version "0.1.1.0"
 ```
 
-### 7.6 注意事项
+`-Version` 只改暂存副本，仓库里的 `Package.appxmanifest` 不动。
 
-- **客户端机密会过期**（Entra 默认最长 24 个月）。过期后工作流在 reconfigure 步骤失败，
-  重新建一个并更新 Secret 即可。
-- **仅免费应用支持自动更新**，本应用免费。
-- **新包版本号必须严格高于**已发布版本，否则商店拒绝。工作流从标签取版本号，
-  标签写 `v0.1.1.0` → 包版本 `0.1.1.0`。
-- **文案更新不在本工作流内**。`msstore publish` 会删除待提交草稿并基于上次发布的提交重建，
-  已暂存的文案改动会被丢弃。要自动同步文案需另建 `metadata.json` + 独立工作流，
-  且顺序必须是「先 publish 建草稿，再改 metadata」。
+产物：`msix\build\RayDigital.FM_0.1.1.0_x64.msix`
+
+### 7.3 上传
+
+Partner Center → 应用和游戏 → FM 电台 → 应用程序概述 → **管理程序包**。
+
+1. 删除当前包 —— 商店不接受版本号相同或更低的包
+2. 上传新生成的 `.msix`
+3. 等待包校验完成。**只有 `runFullTrust` 一条警告**，属预期：桌面应用需要
+   `Windows.FullTrustApplication` 入口点才能运行
+4. 进 **提交和发布** → 如有文案改动则更新商店列表 → **提交以供认证**
+
+认证通常数小时，最长 3 个工作日，通过后自动发布。
+
+### 7.4 改文案或截图
+
+文案与截图不在包里，只能在 Partner Center 手工改：进入
+**商店列表**，zh-CN 和 en-US 各一份，各自的应用说明、详细说明、截图。
+
+改截图需要先重新截取对应语言的界面，两套不能混用。
+
+### 7.5 提交前检查
+
+- 包版本号高于已发布版本
+- `Identity` 三项与本文件顶部表格一致
+- 包校验只有 `runFullTrust` 一条警告
+- 中英文列表都检查过，截图语言与列表语言对应
+- 隐私政策 URL 仍可访问
