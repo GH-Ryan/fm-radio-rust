@@ -213,7 +213,7 @@ impl Player {
             // the body has no timeout, because a station that goes quiet for a
             // while is normal and must not be treated as a dead stream.
             .connect_timeout(Duration::from_secs(12))
-            .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/60.5 Safari/605.1.15 wails.io/605.1.15")
+            .user_agent(crate::radio::USER_AGENT)
             .build()?;
 
         let mut request = client.get(&stream_url);

@@ -71,15 +71,17 @@ Tauri 2 + Rust + React，音频由内置解码器流式处理，不依赖系统�
 **前端必须先于 Rust 构建。** Tauri 在编译期把 `dist/` 整个嵌入二进制，顺序反了会打进旧前端，而且不会报错。
 
 ```sh
-cd frontend && npm install && npm run build && cd ..
-cargo build --release --features custom-protocol
+npm install && npm run build
+cd src-tauri && cargo build --release --features custom-protocol
 ```
 
-产物：`target\release\fm-radio.exe`
+产物：`src-tauri\target\release\fm-radio.exe`
 
 `--features custom-protocol` 不能省 —— 它决定 Tauri 读取打包资源还是去连开发服务器。
 
 ### 测试
+
+在 `src-tauri/` 下执行：
 
 ```sh
 cargo test
@@ -89,11 +91,13 @@ cargo fmt --check
 
 ### 打包 MSIX
 
+包源在 `msix/`（清单、图标、资源字符串），脚本在 `tools/`：
+
 ```powershell
 .\tools\New-MsixPackage.ps1 -Version "0.1.0.1"
 ```
 
-完整说明见 [BUILD-WINDOWS.md](BUILD-WINDOWS.md)，商店上架流程见 [docs/store-submission.md](docs/store-submission.md)。
+版本号必须高于已发布版本。商店上架流程见 [docs/store-submission.md](docs/store-submission.md)。
 
 ## 技术栈
 
@@ -111,7 +115,7 @@ cargo fmt --check
 
 点击播放前不会向任何电台发起请求；开始播放后仅向所选电台的服务器请求音频流，并向 Radio Browser 的公开 API 请求目录数据。
 
-完整说明见 [PRIVACY.md](PRIVACY.md)。
+完整说明见 [docs/privacy](docs/privacy/index.html)。
 
 ## License
 

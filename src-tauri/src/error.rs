@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// language, so the wording could never be edited or translated.
 ///
 /// The values are part of the contract with the frontend and must not be
-/// renamed without updating frontend/src/i18n/backendErrors.ts.
+/// renamed without updating src/i18n/backendErrors.ts.
 pub mod code {
     // Player
     pub const OUTPUT_UNAVAILABLE: &str = "output_unavailable";

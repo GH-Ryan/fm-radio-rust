@@ -21,7 +21,7 @@ param(
 # and still validates; ms-resource:AppName simply resolves to nothing, so the
 # Start menu falls back to the raw identifier.
 #
-# So the stage is assembled by hand, makepri runs with tools/priconfig.xml, and
+# So the stage is assembled by hand, makepri runs with msix\priconfig.xml, and
 # makeappx packs the result. Staging is a fresh directory rather than building
 # in place because the folder indexer walks everything under the root, and any
 # .msix or .pfx sitting there would be indexed along with the payload.
@@ -54,11 +54,16 @@ $makeappx = Join-Path $sdk 'makeappx.exe'
 # this OS platform".
 $signtool = Join-Path $sdk 'signtool.exe'
 
-$build    = Join-Path $Root 'msix\build'
-$cert     = if ($CertPath) { $CertPath } else { Join-Path $Root 'msix\dev-cert.pfx' }
-$manifest = Join-Path $Root 'Package.appxmanifest'
-$exe      = Join-Path $Root 'target\release\fm-radio.exe'
-$config   = Join-Path $Root 'tools\priconfig.xml'
+# The package source -- manifest, assets, localised strings and the resource
+# index configuration -- lives in msix/, separate from the Tauri crate in
+# src-tauri/. The staging directory and the certificate sit beside them, since
+# neither is part of the application.
+$mpkg    = Join-Path $Root 'msix'
+$build   = Join-Path $mpkg 'build'
+$cert    = if ($CertPath) { $CertPath } else { Join-Path $mpkg 'dev-cert.pfx' }
+$manifest = Join-Path $mpkg 'Package.appxmanifest'
+$exe      = Join-Path $Root 'src-tauri\target\release\fm-radio.exe'
+$config   = Join-Path $mpkg 'priconfig.xml'
 
 foreach ($p in @($makepri, $makeappx, $signtool, $manifest, $exe, $config, $cert)) {
   if (-not (Test-Path $p)) { throw "Missing: $p" }
@@ -81,8 +86,8 @@ if ($Version) {
     $manifestXml, '(?<=<Identity[^>]*Version=")[0-9.]+(?=")', $Version, 'None')
 }
 [IO.File]::WriteAllText("$build\AppxManifest.xml", $manifestXml, (New-Object Text.UTF8Encoding $false))
-Copy-Item (Join-Path $Root 'Assets') $build -Recurse -Force
-Copy-Item (Join-Path $Root 'Strings') $build -Recurse -Force
+Copy-Item (Join-Path $mpkg 'Assets') $build -Recurse -Force
+Copy-Item (Join-Path $mpkg 'Strings') $build -Recurse -Force
 Get-ChildItem $build -Force | ForEach-Object { Write-Host "   $($_.Name)" }
 
 # Both .resw files must parse. An invalid comment yields PRI224, which reads

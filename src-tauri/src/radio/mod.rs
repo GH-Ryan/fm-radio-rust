@@ -12,7 +12,7 @@ const MIRROR_HOST: &str = "all.api.radio-browser.info";
 // browser: they publish no rate limit, but they do ask for a descriptive
 // User-Agent so they can tell real apps apart from scrapers. This one names the
 // app and points at the repository, so they have someone to contact.
-const USER_AGENT: &str = concat!(
+pub const USER_AGENT: &str = concat!(
     "FMRadio/",
     env!("CARGO_PKG_VERSION"),
     " (+https://github.com/GH-Ryan/fm-radio-rust)"

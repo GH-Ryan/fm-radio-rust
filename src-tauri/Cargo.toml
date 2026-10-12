@@ -47,6 +47,10 @@ codegen-units = 1
 panic = "abort"
 strip = true
 
+[lib]
+name = "fm_radio"
+path = "src/lib.rs"
+
 [[bin]]
 name = "fm-radio"
 path = "src/main.rs"

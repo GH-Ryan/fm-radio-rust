@@ -142,11 +142,11 @@ IARC 问卷分两步。第一步选 App Type，三选一：
 ### 7.1 构建
 
 ```powershell
-cd frontend; npm.cmd install; npm.cmd run build; cd ..
-cargo build --release --features custom-protocol
+npm.cmd install; npm.cmd run build
+cd src-tauri; cargo build --release --features custom-protocol; cd ..
 ```
 
-前端必须先于 Rust，否则打进旧前端且不报错。详见 [BUILD-WINDOWS.md](../BUILD-WINDOWS.md)。
+前端必须先于 Rust，否则打进旧前端且不报错。
 
 ### 7.2 打包
 
