@@ -1,11 +1,17 @@
-﻿# FM 电台
+﻿<p align="center">
+  <img src="src-tauri/icons/128x128@2x.png" width="128" alt="FM 电台">
+</p>
 
-[![Microsoft Store](https://img.shields.io/badge/Microsoft%20Store-0078D4?logo=microsoft&logoColor=white)](https://apps.microsoft.com/detail/9NCZJDND65GH)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+<h1 align="center">FM 电台</h1>
 
-Radio Browser 的 Windows 桌面客户端 —— 浏览全球电台目录，直接播放，无需账号。
+<p align="center">
+  <a href="https://apps.microsoft.com/detail/9NCZJDND65GH"><img src="https://get.microsoft.com/images/en-us%20dark.svg" height="52" alt="Get it from Microsoft Store"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+</p>
 
-Tauri 2 + Rust + React，音频由内置解码器流式处理，不依赖系统组件或外部播放器。
+<p align="center">
+  浏览全球网络电台目录，点击即听。Tauri 2 + Rust + React，音频由内置解码器流式处理。
+</p>
 
 ![电台列表](assets/Screenshot-01-browse-zh.png)
 
@@ -13,27 +19,25 @@ Tauri 2 + Rust + React，音频由内置解码器流式处理，不依赖系统�
 
 ---
 
-## 概述
-
-[Radio Browser](https://www.radio-browser.info/) 是一个聚合了全球数千个公开电台的开放目录。本应用是它的桌面客户端：拉取目录、浏览或搜索、播放。
-
-所有数据来自 Radio Browser 的公开 API。本应用不设服务器、不做转发、不做统计。
-
-- **平台**：仅 Windows
-- **语言**：跟随系统语言（简体中文 / English）
-- **隐私**：无账号、无遥测、无广告，收藏与设置仅存本地
-
 ## 特性
 
-- 浏览与搜索 Radio Browser 全量电台目录，按热门度、名称、标签浏览
-- 收藏电台，本地保存
-- 流式播放，断流自动处理
-- 解析 ICY 元数据，显示电台名与当前曲名（自动处理 UTF-8 与 GB18030 编码的电台）
-- 显示电台的位深、采样率、编码信息
-- 随机播放（当前列表或收藏列表）
-- 无边框窗口，自绘标题栏，支持贴靠
-- 中英双语，跟随系统语言
-- 无账号、无遥测、无广告
+- **浏览与搜索** —— Radio Browser 全量电台目录，可按台名、国家、标签、热门度浏览
+- **流式播放** —— 直接播放，无需下载，不依赖系统解码器或外部播放器
+- **收藏** —— 常听的电台存在本机，下次打开还在
+- **电台信息** —— 每张卡片显示台标、所在国家、编码格式和信号强度
+- **歌曲元数据** —— 解析 ICY 元数据，显示当前曲名；兼容 UTF-8 与 GB18030 编码的电台
+- **随机播放** —— 从当前列表或收藏列表随机挑一个
+- **贴靠支持** —— 无边框窗口，自绘标题栏，可用 Windows 贴靠
+- **中英双语** —— 跟随系统语言，无需设置
+- **无账号、无遥测、无广告**
+
+## 下载
+
+通过 Microsoft Store 获取（Windows 10 1809 / 11 及以上）：
+
+<https://apps.microsoft.com/detail/9NCZJDND65GH>
+
+其他安装方式见下方[从源码构建](#从源码构建)。
 
 ## 格式支持
 
@@ -50,21 +54,20 @@ Tauri 2 + Rust + React，音频由内置解码器流式处理，不依赖系统�
 
 > 电台实际使用什么格式由电台方决定。目录里标注的编码信息仅供参考，部分电台标注与实际流不一致。
 
-## 下载
+## 系统要求
 
-通过 Microsoft Store 获取（Windows 10 1809 / 11 及以上）：
-
-<https://apps.microsoft.com/detail/9NCZJDND65GH>
+- Windows 10 1809 或更高
+- 播放 MP3 / AAC 无需任何额外组件 —— 解码在应用内完成
+- Microsoft Store 版本会自动安装 WebView2 运行时
 
 ## 从源码构建
 
 ### 前置条件
 
-- Windows 10 1809 或更高
 - [Rust](https://rustup.rs/) stable（edition 2021）
 - [Node.js](https://nodejs.org/) 18 或更高
 - Visual Studio Build Tools 的「使用 C++ 的桌面开发」工作负载
-- Windows SDK（含 `makepri` / `makeappx`，仅打 MSIX 时需要）
+- Windows SDK —— 仅打包 MSIX 时需要（含 `makepri` / `makeappx`）
 
 ### 构建
 
@@ -78,6 +81,8 @@ cd src-tauri && cargo build --release --features custom-protocol
 产物：`src-tauri\target\release\fm-radio.exe`
 
 `--features custom-protocol` 不能省 —— 它决定 Tauri 读取打包资源还是去连开发服务器。
+
+开发时用 `npm run tauri dev`，会同时启动前端开发服务器和应用，改动即时生效。
 
 ### 测试
 
@@ -101,7 +106,31 @@ cd src-tauri && cargo build --release --features custom-protocol && cd ..
 
 产物在 `msix\build\`，上传到 Partner Center 的「管理程序包」。版本号必须高于已发布版本。
 
+脚本手工组装暂存目录并调用 `makepri` / `makeappx` / `signtool`，而不用 `winapp package`：
+winapp 生成的 `priconfig.xml` 用一份只列 `Assets\` 的清单限定索引范围，会丢掉 `Strings\` 里的
+逐语言候选，`ms-resource:AppName` 因此解析不到东西，开始菜单回退成包标识符。
+
+## 技术栈
+
+| 层 | 技术 | 用途 |
+| --- | --- | --- |
+| 界面 | React 18 + TypeScript + Vite | 组件与状态，热重载开发 |
+| 容器 | Tauri 2 | 原生窗口、WebView2 宿主、进程间调用 |
+| 后端 | Rust（edition 2021） | 目录请求、播放控制、本地存储 |
+| 音频 | symphonia 解码 + rodio 输出 | 流式解码与声卡输出，不依赖系统解码器 |
+| 网络 | reqwest（rustls） | Radio Browser API 与电台音频流，纯 Rust TLS |
+
+## 隐私
+
+本应用不收集任何数据：无账号、无标识符、无遥测、无广告。收藏与设置保存在本机。
+
+点击播放前不会向任何电台发起请求；开始播放后仅向所选电台的服务器请求音频流，并向 Radio Browser 的公开 API 请求目录数据。
+
+完整说明见 [docs/privacy](docs/privacy/index.html)。
+
 ## 商店发布信息
+
+供维护者发布时参考。
 
 ### 身份
 
@@ -113,7 +142,6 @@ cd src-tauri && cargo build --release --features custom-protocol && cd ..
 | 发布者显示名 / Publisher display name | Ray Digital |
 | Seller ID | `96541170` |
 | 隐私政策 | <https://gh-ryan.github.io/fm-radio-rust/privacy/> |
-| Store 链接 | <https://apps.microsoft.com/detail/9NCZJDND65GH> |
 
 前三项由 Partner Center 分配，必须与 `msix/Package.appxmanifest` 里的 `Identity` 完全一致，
 否则包校验失败。
@@ -173,24 +201,6 @@ Station directory provided by Radio Browser.
 
 - zh-CN：`电台,广播,收音机,网络电台,在线广播,音乐,音乐播放器,Radio Browser`
 - en-US：`radio,broadcast,internet radio,online radio,music,music player,stream,Radio Browser`
-
-## 技术栈
-
-| 层 | |
-| --- | --- |
-| 界面 | React 18 + TypeScript + Vite |
-| 容器 | Tauri 2 |
-| 后端 | Rust（edition 2021） |
-| 音频 | symphonia 解码 + rodio 输出 |
-| 网络 | reqwest（rustls） |
-
-## 隐私
-
-本应用不收集任何数据：无账号、无标识符、无遥测、无广告。收藏与设置保存在本机。
-
-点击播放前不会向任何电台发起请求；开始播放后仅向所选电台的服务器请求音频流，并向 Radio Browser 的公开 API 请求目录数据。
-
-完整说明见 [docs/privacy](docs/privacy/index.html)。
 
 ## License
 
