@@ -1,13 +1,13 @@
 # FM 电台
 
-[![Store](https://img.shields.io/badge/Microsoft%20Store-Ray%20Digital-0078D4)](https://apps.microsoft.com)
+[![Store](https://img.shields.io/badge/Microsoft%20Store-0078D4?logo=microsoft&logoColor=white)](https://apps.microsoft.com/detail/9NCZJDND65GH)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ![电台列表](docs/store-assets/Screenshot-01-browse-zh.png)
 
 Radio Browser 桌面客户端。Tauri 2 + Rust，自带流式解码，不依赖外部播放器。
 
-上架 Microsoft Store。Windows only。
+Windows only。正在通过 Microsoft Store 审核。
 
 ## 特性
 
@@ -36,7 +36,7 @@ cargo build --release --features custom-protocol
 ```sh
 cargo test
 cargo clippy -- -D warnings
-cargo fmt -- --check
+cargo fmt --check
 ```
 
 ## 格式

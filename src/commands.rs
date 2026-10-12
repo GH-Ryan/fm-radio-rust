@@ -1,4 +1,4 @@
-use crate::error::{AppError, AppResult, ErrSuperseded, code};
+use crate::error::{code, AppError, AppResult, ErrSuperseded};
 use crate::radio::Station;
 use crate::store::FavoritesStore;
 // AppState is defined in this file
@@ -137,10 +137,7 @@ pub async fn top_stations(state: State<'_, AppState>) -> AppResult<Vec<StationVi
     };
 
     let client = state.client.clone();
-    let stations = spawn_blocking(move || client.top(SEARCH_LIMIT))
-        .await
-        ?
-        ?;
+    let stations = spawn_blocking(move || client.top(SEARCH_LIMIT)).await??;
 
     // A newer request has been issued. Its result is the one the user wants, so
     // this one is dropped -- but reporting it as an empty list would clear what
@@ -183,9 +180,7 @@ pub async fn search_stations(
             client.search(&term2, SEARCH_LIMIT)
         }
     })
-    .await
-    ?
-    ?;
+    .await??;
 
     if *state.search_seq.lock().await != current_seq {
         return Err(ErrSuperseded.into());
@@ -246,10 +241,7 @@ pub async fn get_favorites(
 }
 
 #[tauri::command]
-pub async fn toggle_favorite(
-    station: StationView,
-    state: State<'_, AppState>,
-) -> AppResult<bool> {
+pub async fn toggle_favorite(station: StationView, state: State<'_, AppState>) -> AppResult<bool> {
     let station_obj = station.to_station();
     let key = station_obj.key();
 
@@ -257,10 +249,7 @@ pub async fn toggle_favorite(
         state.favorites.remove(&key)?;
         false
     } else {
-        state
-            .favorites
-            .add(station_obj.clone())
-            ?;
+        state.favorites.add(station_obj.clone())?;
         true
     };
 
@@ -278,10 +267,7 @@ pub async fn toggle_favorite(
 #[tauri::command]
 pub async fn play_station(station: StationView, state: State<'_, AppState>) -> AppResult<()> {
     let station_obj = station.to_station();
-    state
-        .player
-        .play(station_obj.clone())
-        ?;
+    state.player.play(station_obj.clone())?;
     let _ = state.last_station.save(station_obj);
     Ok(())
 }
@@ -302,7 +288,13 @@ pub async fn play_random(list: String, state: State<'_, AppState>) -> AppResult<
     let pool = match list.as_str() {
         "favorites" => state.fav_pool.lock().await.clone(),
         "browse" | "" => state.browse_pool.lock().await.clone(),
-        _ => return Err(AppError::with_detail(code::UNKNOWN_LIST, format!("未知列表 {:?}", list), list)),
+        _ => {
+            return Err(AppError::with_detail(
+                code::UNKNOWN_LIST,
+                format!("未知列表 {:?}", list),
+                list,
+            ))
+        }
     };
 
     if pool.is_empty() {
@@ -310,10 +302,7 @@ pub async fn play_random(list: String, state: State<'_, AppState>) -> AppResult<
     }
 
     let station = pool[fastrand::usize(..pool.len())].clone();
-    state
-        .player
-        .play(station.clone())
-        ?;
+    state.player.play(station.clone())?;
     let _ = state.last_station.save(station);
     Ok(())
 }
@@ -363,7 +352,10 @@ pub fn player_view(state: &crate::player::PlayerState, favorites: &FavoritesStor
     // to make this silently stop matching the moment the copy was reworded or
     // translated.
     if let Some(ref err) = state.error {
-        view.error_sticky = matches!(err.code.as_str(), code::UNSUPPORTED_FORMAT | code::FORMAT_NOT_SUPPORTED);
+        view.error_sticky = matches!(
+            err.code.as_str(),
+            code::UNSUPPORTED_FORMAT | code::FORMAT_NOT_SUPPORTED
+        );
     }
 
     view

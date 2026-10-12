@@ -154,7 +154,13 @@ fn a_gbk_encoded_title_decodes_rather_than_becoming_replacement_characters() {
     let block = "StreamTitle='德云社 - 我要反三';"
         .as_bytes()
         .iter()
-        .flat_map(|c| if *c < 0x80 { vec![*c] } else { vec![0xCE, 0xC4, 0xC1, 0xD3] })
+        .flat_map(|c| {
+            if *c < 0x80 {
+                vec![*c]
+            } else {
+                vec![0xCE, 0xC4, 0xC1, 0xD3]
+            }
+        })
         .collect::<Vec<u8>>();
     let title = icy_title(&block);
     assert!(!title.contains('\u{FFFD}'), "GBK title decoded as: {title}");
@@ -174,5 +180,8 @@ fn undecodable_bytes_are_dropped_rather_than_shown() {
     // better than showing a row of diamonds.
     let block = b"StreamTitle='\xff\xfe\xfd'";
     let title = icy_title(block);
-    assert!(!title.contains('\u{FFFD}'), "undecodable bytes survived: {title}");
+    assert!(
+        !title.contains('\u{FFFD}'),
+        "undecodable bytes survived: {title}"
+    );
 }

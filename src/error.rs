@@ -61,7 +61,11 @@ pub struct AppError {
 
 impl AppError {
     pub fn new(code: &str, message: impl Into<String>) -> Self {
-        Self { code: code.to_string(), message: message.into(), detail: None }
+        Self {
+            code: code.to_string(),
+            message: message.into(),
+            detail: None,
+        }
     }
 
     pub fn with_detail(code: &str, message: impl Into<String>, detail: impl Into<String>) -> Self {
