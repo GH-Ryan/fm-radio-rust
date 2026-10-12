@@ -91,13 +91,17 @@ cargo fmt --check
 
 ### 打包 MSIX
 
-包源在 `msix/`（清单、图标、资源字符串），脚本在 `tools/`：
+包源在 `msix/`（清单、图标、资源字符串），脚本在 `tools/`。发新版的完整步骤：
 
 ```powershell
-.\tools\New-MsixPackage.ps1 -Version "0.1.0.1"
+npm install && npm run build
+cd src-tauri && cargo build --release --features custom-protocol && cd ..
+.\tools\New-MsixPackage.ps1 -Version "0.2.0.0"
 ```
 
-版本号必须高于已发布版本。商店上架流程见 [docs/store-submission.md](docs/store-submission.md)。
+产物在 `msix\build\`，上传到 Partner Center 的「管理程序包」。版本号必须高于已发布版本。
+
+商店文案与素材清单见 [docs/store-submission.md](docs/store-submission.md)。
 
 ## 技术栈
 
