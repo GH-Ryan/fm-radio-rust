@@ -120,20 +120,12 @@ cd src-tauri && cargo build --release --features custom-protocol && cd ..
 
 ### 素材
 
-| `assets/`（上传到 Store listing） | `msix/Assets/`（打进包，Windows 从包内读） |
-| --- | --- |
-| `Screenshot-0?-*-zh.png` / `-en.png` | `StoreLogo.png` |
-| `Square300x300Logo.png` | `Square44x44Logo.png`（任务栏） |
-| | `Square71x71Logo.png` |
-| | `Square150x150Logo.png` |
-| | `Square310x310Logo.png`（也可上传 listing） |
-| | `LockScreenLogo.png` |
-| | `Wide310x150Logo.png` |
-| | `SplashScreen.png` |
+截图分中英两套（`assets/Screenshot-0?-*-zh.png` / `-en.png`），上传到对应语言的 listing，
+两套不能混用。其余图标的归属看目录：`assets/` 上传商店，`msix/Assets/` 打进包，
+`src-tauri/icons/` 是 Tauri 应用图标（`icon.ico` 编译进 exe 决定窗口与任务栏图标）。
 
-截图分中英两套，分别上传到对应语言的 listing，两套不能混用。
-`src-tauri/icons/` 是第三类 —— Tauri 应用图标，`icon.ico` 编译进 exe 决定窗口与任务栏图标，
-`icon-1024.png` 是以上所有素材的生成源。
+全部素材由 `tools/New-StoreAssets.ps1` 从 `src-tauri/icons/icon-1024.png` 生成，
+`Square310x310Logo.png` 是唯一同时用于包和 listing 的尺寸。
 
 ### 文案
 
