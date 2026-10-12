@@ -87,26 +87,10 @@ if ($Version) {
 }
 [IO.File]::WriteAllText("$build\AppxManifest.xml", $manifestXml, (New-Object Text.UTF8Encoding $false))
 
-# Named rather than copying assets/ wholesale: that directory also holds the
-# listing screenshots, which are megabytes and belong in no package. The first
-# five are the ones Package.appxmanifest names; the rest are the sizes Windows
-# looks for on its own.
-$pkgAssets = @(
-  'StoreLogo.png',
-  'Square44x44Logo.png',
-  'Square71x71Logo.png',
-  'Square150x150Logo.png',
-  'Square310x310Logo.png',
-  'Wide310x150Logo.png',
-  'LockScreenLogo.png',
-  'SplashScreen.png'
-)
-New-Item -ItemType Directory -Path "$build\Assets" -Force | Out-Null
-foreach ($a in $pkgAssets) {
-  $src = Join-Path $Root "assets\$a"
-  if (-not (Test-Path $src)) { throw "Missing package asset: $src" }
-  Copy-Item $src "$build\Assets\$a" -Force
-}
+# msix\Assets\ holds only what Windows reads from inside the package, so it is
+# copied whole. The listing screenshots are in assets\ and are never part of a
+# package -- they are uploaded to Partner Center by hand.
+Copy-Item (Join-Path $mpkg 'Assets') $build -Recurse -Force
 Copy-Item (Join-Path $mpkg 'Strings') $build -Recurse -Force
 Get-ChildItem $build -Force | ForEach-Object { Write-Host "   $($_.Name)" }
 

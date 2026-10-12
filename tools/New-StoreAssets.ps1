@@ -1,6 +1,13 @@
 param(
+  # The 1024x1024 render every asset is resampled from.
   [Parameter(Mandatory = $true)][string]$Source,
-  [Parameter(Mandatory = $true)][string]$OutDir
+  # Sizes Windows reads from inside the package. Also the directory the
+  # packaging script copies wholesale.
+  [Parameter(Mandatory = $true)][string]$OutDir,
+  # The one size that is uploaded to the Store listing instead of packed. It
+  # lives outside OutDir so that copying OutDir into a package cannot pick it
+  # up, and so neither directory needs an exclusion list.
+  [string]$ListingDir = 'assets'
 )
 
 # Generates the icon set the MSIX manifest and the Store require.
@@ -26,7 +33,7 @@ param(
 # ANSI unless it carries a BOM.
 #
 # Usage:
-#   powershell -File tools/New-StoreAssets.ps1 -Source src-tauri\icons\icon-1024.png -OutDir assets
+#   powershell -File tools/New-StoreAssets.ps1 -Source src-tauri\icons\icon-1024.png -OutDir msix\Assets
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
@@ -136,9 +143,14 @@ $square = [ordered]@{
   'Square44x44Logo.png'   = 44
   'Square71x71Logo.png'   = 71
   'Square150x150Logo.png' = 150
-  'Square300x300Logo.png' = 300
   'Square310x310Logo.png' = 310
   'LockScreenLogo.png'    = 24
+}
+
+# Listing-only. The Store asks for a 300x300 logo on the listing page, and
+# Windows never looks for that size inside the package.
+$listing = [ordered]@{
+  'Square300x300Logo.png' = 300
 }
 
 # Non-square assets centre the mark on the app's own background, which is what
@@ -150,24 +162,35 @@ $wide = [ordered]@{
 
 $AppBackground = [System.Drawing.ColorTranslator]::FromHtml('#0e0f13')
 
-foreach ($entry in $square.GetEnumerator()) {
-  $size = $entry.Value
-  $out = Join-Path $OutDir $entry.Key
+# Square assets are the same render at different sizes, so the body is shared
+# and only the destination directory differs.
+function Write-SquareAssets {
+  param([System.Collections.Specialized.OrderedDictionary]$Table, [string]$Dir)
 
-  $bmp = New-Bitmap $size $size
-  $g = Set-Quality ([System.Drawing.Graphics]::FromImage($bmp))
-  try {
-    $g.DrawImage($master, 0, 0, $size, $size)
-    Set-Opaque $bmp
-    $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
-  }
-  finally {
-    $g.Dispose()
-    $bmp.Dispose()
-  }
+  New-Item -ItemType Directory -Path $Dir -Force | Out-Null
 
-  Write-Host ("  {0,-24} {1}x{1}" -f $entry.Key, $size)
+  foreach ($entry in $Table.GetEnumerator()) {
+    $size = $entry.Value
+    $out = Join-Path $Dir $entry.Key
+
+    $bmp = New-Bitmap $size $size
+    $g = Set-Quality ([System.Drawing.Graphics]::FromImage($bmp))
+    try {
+      $g.DrawImage($master, 0, 0, $size, $size)
+      Set-Opaque $bmp
+      $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
+    }
+    finally {
+      $g.Dispose()
+      $bmp.Dispose()
+    }
+
+    Write-Host ("  {0,-24} {1}x{1}  -> {2}" -f $entry.Key, $size, $Dir)
+  }
 }
+
+Write-SquareAssets $square $OutDir
+Write-SquareAssets $listing $ListingDir
 
 foreach ($entry in $wide.GetEnumerator()) {
   $w = $entry.Value[0]

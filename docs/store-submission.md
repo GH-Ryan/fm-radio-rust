@@ -28,21 +28,26 @@
 
 | 300×300 tile | 310×310 | 150×150 | Splash 620×300 |
 | --- | --- | --- | --- |
-| ![](../assets/Square300x300Logo.png) | ![](../assets/Square310x310Logo.png) | ![](../assets/Square150x150Logo.png) | ![](../assets/SplashScreen.png) |
+| ![](../assets/Square300x300Logo.png) | ![](../msix/Assets/Square310x310Logo.png) | ![](../msix/Assets/Square150x150Logo.png) | ![](../msix/Assets/SplashScreen.png) |
 
 > 上图仅供参考尺寸比例，实际提交的是这些文件本身，不是拼图。
 
-**上传商店 vs 打进安装包** —— 目录里有两类，用途不同：
+**上传商店 vs 打进安装包** —— 两类素材分开放，互不混入：
 
-| 上传到 Store listing | 只打进 MSIX 包（Windows 从包内读取） |
+| `assets/`（上传到 Store listing） | `msix/Assets/`（打进包，Windows 从包内读） |
 | --- | --- |
-| `Screenshot-*.png` | `Square44x44Logo.png`（任务栏） |
-| `Square300x300Logo.png` | `Square71x71Logo.png` |
-| `Square310x310Logo.png`（可选，覆盖包内） | `Square150x150Logo.png` |
-| | `StoreLogo.png` |
+| `Screenshot-*.png` | `StoreLogo.png` |
+| `Square300x300Logo.png` | `Square44x44Logo.png`（任务栏） |
+| | `Square71x71Logo.png` |
+| | `Square150x150Logo.png` |
+| | `Square310x310Logo.png`（也可上传 listing） |
 | | `LockScreenLogo.png` |
 | | `Wide310x150Logo.png` |
 | | `SplashScreen.png` |
+
+`src-tauri/icons/` 是第三类 —— Tauri 应用图标，`icon.ico` 编译进 exe 决定窗口与任务栏图标，
+`icon-1024.png` 是上面所有素材的生成源。三者都由 `tools/New-StoreAssets.ps1` /
+`tools/New-OpaqueIco.ps1` 从矢量图生成。
 
 ---
 
