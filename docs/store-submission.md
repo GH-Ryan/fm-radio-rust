@@ -143,6 +143,91 @@ Submission 1 于 2026-10-11 提交，2026-10-12 通过认证并发布，公开�
 包校验只有一条 `runFullTrust` 警告，属预期：应用需要 `Windows.FullTrustApplication`
 入口点才能运行，这是桌面应用在 MSIX 下的正常形态。
 
-后续更新走 CI：`.github/workflows/release.yml`，触发方式为推送 `v*` 标签。前置条件是
-Partner Center 里授予 Entra 应用 Manager 角色，并配置 4 个仓库 Secrets —— 尚未完成。
-在完成之前，更新需在 Partner Center 手动上传包。
+后续更新走 CI：`.github/workflows/release.yml`，触发方式为推送 `v*` 标签。在下面的配置完成
+之前，更新需在 Partner Center 手动上传包。
+
+---
+
+## 7. 启用自动更新（Entra 应用）
+
+尚未配置。完成后推送 `v*` 标签即可自动构建、打包并提交商店。
+
+工作流逻辑已就绪并对照官方文档校验过；缺的全是账号侧的配置，这三步都在浏览器里完成。
+
+### 7.1 关联 Entra 租户
+
+Partner Center → 设置 → 账户设置 → 租户管理。
+
+若列表为空，选「关联现有 Azure AD 租户」或「创建新租户」。个人开发者账号同样需要这一步，
+API 不接受 MSA 账号直接认证。
+
+### 7.2 注册 Entra 应用
+
+<https://entra.microsoft.com/> → 应用注册 → 新建注册。
+
+| 项 | 填什么 |
+| --- | --- |
+| 名称 | 随意，例如 `fm-radio-rust CI` |
+| 账户类型 | **仅组织目录中的账户** |
+| 重定向 URI | 留空 |
+
+注册后打开「证书和机密」→ 新建客户端机密 → **立即复制值**，页面关闭后不再显示。
+
+三个 ID 各处一处，不要混用：
+
+| 值 | 在哪找 | 用途 |
+| --- | --- | --- |
+| 租户 ID | 应用注册页「概述」→ 目录(租户) ID | `AZURE_AD_TENANT_ID` |
+| 应用程序(客户端) ID | 「概述」→ 应用程序 ID | `AZURE_AD_APPLICATION_CLIENT_ID` |
+| 客户端机密值 | 「证书和机密」→ 新建后显示一次 | `AZURE_AD_APPLICATION_SECRET` |
+| Seller ID | Partner Center → 设置 → 开发者设置 → 卖方 ID | `SELLER_ID`（本项目为 `96541170`） |
+
+### 7.3 在 Partner Center 授权
+
+Partner Center → 设置 → 用户管理 → 添加用户。
+
+| 项 | 填什么 |
+| --- | --- |
+| 电子邮件 | 填 7.2 的**应用程序(客户端) ID** —— 此处接受 ID 而非邮箱 |
+| 类型 | Microsoft Entra 应用程序 |
+| 角色 | **Manager** |
+
+角色低于 Manager 会在 `msstore reconfigure` 阶段报权限错误。
+
+### 7.4 配置仓库 Secrets
+
+仓库 → Settings → Secrets and variables → Actions → New repository secret。
+
+四个名称必须完全一致，工作流按名引用：
+
+```
+AZURE_AD_TENANT_ID
+AZURE_AD_APPLICATION_CLIENT_ID
+AZURE_AD_APPLICATION_SECRET
+SELLER_ID
+```
+
+### 7.5 验证
+
+```powershell
+msstore reconfigure --tenantId <T> --sellerId 96541170 --clientId <C> --clientSecret <S>
+msstore apps get 9NCZJDND65GH
+```
+
+`apps get` 能返回产品详情即配置正确。随后推送标签：
+
+```bash
+git tag v0.1.1.0
+git push origin v0.1.1.0
+```
+
+### 7.6 注意事项
+
+- **客户端机密会过期**（Entra 默认最长 24 个月）。过期后工作流在 reconfigure 步骤失败，
+  重新建一个并更新 Secret 即可。
+- **仅免费应用支持自动更新**，本应用免费。
+- **新包版本号必须严格高于**已发布版本，否则商店拒绝。工作流从标签取版本号，
+  标签写 `v0.1.1.0` → 包版本 `0.1.1.0`。
+- **文案更新不在本工作流内**。`msstore publish` 会删除待提交草稿并基于上次发布的提交重建，
+  已暂存的文案改动会被丢弃。要自动同步文案需另建 `metadata.json` + 独立工作流，
+  且顺序必须是「先 publish 建草稿，再改 metadata」。
