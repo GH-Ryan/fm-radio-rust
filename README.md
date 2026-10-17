@@ -39,6 +39,12 @@
 
 其他安装方式见下方[从源码构建](#从源码构建)。
 
+## 更新日志
+
+当前版本：**v1.0.0**
+
+完整更新日志：[docs/CHANGELOG.md](docs/CHANGELOG.md)
+
 ## 格式支持
 
 解码由 [symphonia](https://docs.rs/symphonia) 完成，不依赖系统解码器。
@@ -67,7 +73,7 @@
 - [Rust](https://rustup.rs/) stable（edition 2021）
 - [Node.js](https://nodejs.org/) 18 或更高
 - Visual Studio Build Tools 的「使用 C++ 的桌面开发」工作负载
-- Windows SDK —— 仅打包 MSIX 时需要（含 `makepri` / `makeappx`）
+- Windows SDK（Windows 桌面构建需要；打包 MSIX 时还需其中的 `makepri` / `makeappx`）
 
 ### 构建
 
@@ -101,10 +107,10 @@ cargo fmt --check
 ```powershell
 npm install && npm run build
 cd src-tauri && cargo build --release --features custom-protocol && cd ..
-.\tools\New-MsixPackage.ps1 -Version "0.2.0.0"
+.\tools\New-MsixPackage.ps1 -Version "1.0.0.0"
 ```
 
-产物在 `msix\build\`，上传到 Partner Center 的「管理程序包」。版本号必须高于已发布版本。
+产物在 `msix\build\`，上传到 Partner Center 的「管理程序包」。
 
 脚本手工组装暂存目录并调用 `makepri` / `makeappx` / `signtool`，而不用 `winapp package`：
 winapp 生成的 `priconfig.xml` 用一份只列 `Assets\` 的清单限定索引范围，会丢掉 `Strings\` 里的

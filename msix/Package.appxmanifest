@@ -17,7 +17,7 @@
   <Identity
     Name="RayDigital.FM"
     Publisher="CN=3795FA3D-F467-470E-B67A-65A8BC923C67"
-    Version="0.1.0.0" />
+    Version="1.0.0.0" />
 
   <Properties>
     <DisplayName>ms-resource:AppName</DisplayName>
