@@ -167,7 +167,7 @@ winapp 生成的 `priconfig.xml` 用一份只列 `Assets\` 的清单限定索引
 | 语言 | 名称 |
 | --- | --- |
 | zh-CN | FM 电台 |
-| en-US | FM Radio |
+| en-US | FM 电台 |
 
 **zh-CN 描述**
 

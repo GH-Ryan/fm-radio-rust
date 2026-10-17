@@ -74,8 +74,14 @@ $releaseTags = foreach ($tag in $tags) {
   }
 }
 $latestTag = $releaseTags | Sort-Object Version -Descending | Select-Object -First 1
-if ($latestTag -and [version]$releaseVersion -le $latestTag.Version) {
-  Stop-Release "version '$releaseVersion' must be higher than the latest release tag '$($latestTag.Name)'."
+$isExistingReleaseMsixBuild = $latestTag -and
+  [version]$releaseVersion -eq $latestTag.Version -and
+  $MsixVersion -eq $releaseVersion
+if ($latestTag -and [version]$releaseVersion -lt $latestTag.Version) {
+  Stop-Release "version '$releaseVersion' is lower than the latest release tag '$($latestTag.Name)'."
+}
+if ($latestTag -and [version]$releaseVersion -eq $latestTag.Version -and -not $isExistingReleaseMsixBuild) {
+  Stop-Release "version '$releaseVersion' has already been released as '$($latestTag.Name)'; only an MSIX build of that exact version is allowed."
 }
 
 $readmePath = Join-Path $Root 'README.md'
@@ -102,7 +108,7 @@ if (-not $releaseEntry.Success -or
   Stop-Release "docs/CHANGELOG.md must contain a non-empty '## [$releaseVersion]' release entry."
 }
 
-if ($latestTag) {
+if ($latestTag -and -not $isExistingReleaseMsixBuild) {
   foreach ($path in @('README.md', 'docs/CHANGELOG.md')) {
     $baselineEntry = @(& git ls-tree $latestTag.Name -- $path)
     if ($LASTEXITCODE -ne 0) {
@@ -121,7 +127,9 @@ if ($latestTag) {
   }
 }
 
-if ($latestTag) {
+if ($isExistingReleaseMsixBuild) {
+  Write-Host "MSIX rebuild readiness checks passed for existing v$releaseVersion."
+} elseif ($latestTag) {
   Write-Host "Release readiness checks passed for v$releaseVersion (previous tag: $($latestTag.Name))."
 } else {
   Write-Host "Initial release readiness checks passed for v$releaseVersion."
