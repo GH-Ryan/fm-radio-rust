@@ -9,6 +9,7 @@ param(
   # Every Store submission needs a strictly higher version than the last, and
   # the version committed in the manifest is only a placeholder. Rewritten on
   # the staged copy only, so the tree keeps its committed value.
+  [ValidatePattern('^\d+\.\d+\.\d+\.\d+$')]
   [string]$Version = ''
 )
 
@@ -35,6 +36,12 @@ param(
 # corrupts the parse rather than merely looking wrong.
 
 $ErrorActionPreference = 'Stop'
+
+if (-not $Version) {
+  throw 'Pass -Version in major.minor.patch.revision format, for example -Version "0.2.0.0".'
+}
+
+& (Join-Path $PSScriptRoot 'Test-ReleaseReadiness.ps1') -Root $Root -MsixVersion $Version
 
 # Locate the newest installed SDK rather than pinning a version. The SDK build
 # changes with Windows updates and differs between machines, and a hardcoded

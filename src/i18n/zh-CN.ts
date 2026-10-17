@@ -11,6 +11,9 @@ export const zhCN = {
 
   // ---- 标题栏与标签页 ----
   appTitle: 'FM 电台',
+  minimize: '最小化',
+  maximize: '最大化',
+  restore: '还原',
   tabStations: '电台',
   tabFavorites: '收藏',
 
@@ -55,6 +58,7 @@ export const zhCN = {
   listenFailed: '播放状态监听失败：{error}',
   superseded: '已被新的操作取代',
   closeFailed: '关闭失败: {error}',
+  windowControlFailed: '窗口操作失败: {error}',
 
   // ---- 错误：后端返回 ----
   // 这些 key 不用于后端错误本身。后端发来的是稳定错误码，文案由

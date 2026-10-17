@@ -14,6 +14,9 @@ export const enUS = {
 
   // ---- Title bar and tabs ----
   appTitle: 'FM Radio',
+  minimize: 'Minimize',
+  maximize: 'Maximize',
+  restore: 'Restore',
   tabStations: 'Stations',
   tabFavorites: 'Favourites',
 
@@ -59,6 +62,7 @@ export const enUS = {
   listenFailed: 'Lost track of playback: {error}',
   superseded: 'Replaced by a newer request',
   closeFailed: 'Could not close: {error}',
+  windowControlFailed: 'Window action failed: {error}',
 
   // ---- Errors from the backend ----
   backendError: '{message}',

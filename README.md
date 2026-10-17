@@ -41,7 +41,7 @@
 
 ## 更新日志
 
-当前版本：**v0.1.0.0**
+当前版本：**v0.1.1.0**
 
 完整更新日志：[docs/CHANGELOG.md](docs/CHANGELOG.md)
 
@@ -75,20 +75,23 @@
 - Visual Studio Build Tools 的「使用 C++ 的桌面开发」工作负载
 - Windows SDK（Windows 桌面构建需要；打包 MSIX 时还需其中的 `makepri` / `makeappx`）
 
-### 构建
+### 一键构建发布版
 
 **前端必须先于 Rust 构建。** Tauri 在编译期把 `dist/` 整个嵌入二进制，顺序反了会打进旧前端，而且不会报错。
 
-```sh
-npm install && npm run build
-cd src-tauri && cargo build --release --features custom-protocol
+在 Windows 上，从项目根目录运行：
+
+```powershell
+.\tools\Build-Release.cmd
 ```
 
-产物：`src-tauri\target\release\fm-radio.exe`
+脚本会先检查发布准备，再按顺序构建前端和启用 `custom-protocol` 的 Rust/Tauri 发布版。成功后产物位于 `src-tauri\target\release\fm-radio.exe`。首次运行前需按上方前置条件安装工具并运行 `npm install`。
 
 `--features custom-protocol` 不能省 —— 它决定 Tauri 读取打包资源还是去连开发服务器。
 
-开发时用 `npm run tauri dev`，会同时启动前端开发服务器和应用，改动即时生效。
+在 Windows 上开发时，从项目根目录运行 `.\tools\Start-Dev.cmd`。脚本会自动定位 Visual Studio、加载并检查 MSVC 开发环境，再启动 Tauri 和前端开发服务器。两个脚本都会自动加载 MSVC 环境，也不会受 PowerShell 对 `npm.ps1` 的执行策略影响。
+
+发布前，构建与 MSIX 脚本会检查应用版本与 MSIX 四段版本一致、版本高于上一个 release tag、README 当前版本已更新，并且更新日志包含本版本的非空条目。
 
 ### 测试
 
@@ -102,15 +105,13 @@ cargo fmt --check
 
 ### 打包 MSIX
 
-包源在 `msix/`（清单、图标、资源字符串），脚本在 `tools/`。发新版的完整步骤：
+包源在 `msix/`（清单、图标、资源字符串），脚本在 `tools/`。发新版时，先运行 `.\tools\Build-Release.cmd`，再打包 MSIX：
 
 ```powershell
-npm install && npm run build
-cd src-tauri && cargo build --release --features custom-protocol && cd ..
-.\tools\New-MsixPackage.ps1 -Version "0.1.0.0"
+.\tools\New-MsixPackage.ps1 -Version "0.1.1.0"
 ```
 
-产物在 `msix\build\`，上传到 Partner Center 的「管理程序包」。
+MSIX 版本必须与当前应用版本一致。产物在 `msix\build\`，上传到 Partner Center 的「管理程序包」。
 
 脚本手工组装暂存目录并调用 `makepri` / `makeappx` / `signtool`，而不用 `winapp package`：
 winapp 生成的 `priconfig.xml` 用一份只列 `Assets\` 的清单限定索引范围，会丢掉 `Strings\` 里的

@@ -323,9 +323,37 @@ function App() {
     }
   }, [showError])
 
+  const handleWindowAction = useCallback(async (action: () => Promise<void>) => {
+    try {
+      await action()
+    } catch (e) {
+      showError(t('windowControlFailed', { error: localize(e) }))
+    }
+  }, [showError, t, locale])
+
+  const handleMinimize = useCallback(
+    () => handleWindowAction(() => getCurrentWindow().minimize()),
+    [handleWindowAction],
+  )
+
+  const handleToggleMaximize = useCallback(
+    () => handleWindowAction(() => getCurrentWindow().toggleMaximize()),
+    [handleWindowAction],
+  )
+
+  const handleWindowError = useCallback(
+    (error: unknown) => showError(t('windowControlFailed', { error: localize(error) })),
+    [showError, t, locale],
+  )
+
   return (
     <div className="app">
-      <Titlebar onClose={handleClose} />
+      <Titlebar
+        onClose={handleClose}
+        onMinimize={handleMinimize}
+        onToggleMaximize={handleToggleMaximize}
+        onWindowError={handleWindowError}
+      />
       <div className="main">
         <div className="content">
           <main className="content-body">
