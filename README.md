@@ -41,7 +41,7 @@
 
 ## 更新日志
 
-当前版本：**v1.0.0**
+当前版本：**v0.1.0.0**
 
 完整更新日志：[docs/CHANGELOG.md](docs/CHANGELOG.md)
 
@@ -107,7 +107,7 @@ cargo fmt --check
 ```powershell
 npm install && npm run build
 cd src-tauri && cargo build --release --features custom-protocol && cd ..
-.\tools\New-MsixPackage.ps1 -Version "1.0.0.0"
+.\tools\New-MsixPackage.ps1 -Version "0.1.0.0"
 ```
 
 产物在 `msix\build\`，上传到 Partner Center 的「管理程序包」。
