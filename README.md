@@ -1,4 +1,4 @@
-﻿<p align="center">
+<p align="center">
   <img src="src-tauri/icons/128x128@2x.png" width="128" alt="FM 电台">
 </p>
 
@@ -41,8 +41,7 @@
 
 ## 更新日志
 
-当前版本：**v0.1.1.0**
-
+当前版本：**v0.1.2.0**
 完整更新日志：[docs/CHANGELOG.md](docs/CHANGELOG.md)
 
 ## 格式支持
@@ -85,13 +84,31 @@
 .\tools\Build-Release.cmd
 ```
 
-脚本会先检查发布准备，再按顺序构建前端和启用 `custom-protocol` 的 Rust/Tauri 发布版。成功后产物位于 `src-tauri\target\release\fm-radio.exe`。首次运行前需按上方前置条件安装工具并运行 `npm install`。
+脚本按固定顺序完成：发布检查 → 加载 MSVC 环境 → 构建前端 → 构建启用 `custom-protocol` 的 Rust/Tauri 发布版 → 复制可执行文件 → 组装、打包并签名 MSIX → 写入校验清单。**不需要额外参数，默认产出全部交付物：**
+
+```
+release\fm-radio.exe
+release\RayDigital.FM_<四段版本>_x64.msix
+release\SHA256SUMS.txt
+```
+
+`dist\`、`src-tauri\target\`（含打包暂存 `target\msix-stage\`）都是中间产物；暂存目录在打包完成后自动清理，`target\` 本身可随时 `cargo clean`。
 
 `--features custom-protocol` 不能省 —— 它决定 Tauri 读取打包资源还是去连开发服务器。
 
-在 Windows 上开发时，从项目根目录运行 `.\tools\Start-Dev.cmd`。脚本会自动定位 Visual Studio、加载并检查 MSVC 开发环境，再启动 Tauri 和前端开发服务器。两个脚本都会自动加载 MSVC 环境，也不会受 PowerShell 对 `npm.ps1` 的执行策略影响。
+### 版本号
 
-发布前，构建与 MSIX 脚本会检查应用版本与 MSIX 四段版本一致、版本高于上一个 release tag、README 当前版本已更新，并且更新日志包含本版本的非空条目。
+版本只有一个来源：根目录的 `VERSION`（四段，例如 `0.1.2.0`）。应用版本取前三段（`0.1.2`），MSIX 使用完整四段。升版本：
+
+```powershell
+.\tools\build\Set-Version.ps1 -Version 0.1.3.0
+```
+
+该脚本会同步 `package.json`、`package-lock.json`、`Cargo.toml`、`Cargo.lock`、`tauri.conf.json`、MSIX 清单和 README；**还需要手工在 `docs/CHANGELOG.md` 增加对应条目**，否则发布检查会拒绝构建。
+
+发布检查会校验上述所有版本位置、README 当前版本、更新日志条目，并要求版本高于上一个 release tag。
+
+开发时从项目根目录运行 `.\tools\Start-Dev.cmd`。脚本会自动定位 Visual Studio、加载并检查 MSVC 开发环境，再启动 Tauri 和前端开发服务器。两个脚本都会自动加载 MSVC 环境，也不会受 PowerShell 对 `npm.ps1` 的执行策略影响。
 
 ### 测试
 
@@ -105,16 +122,12 @@ cargo fmt --check
 
 ### 打包 MSIX
 
-包源在 `msix/`（清单、图标、资源字符串），脚本在 `tools/`。发新版时，先运行 `.\tools\Build-Release.cmd`，再打包 MSIX：
+MSIX 由 `Build-Release.cmd` 默认生成，不需要单独命令。内部脚本 `tools\build\New-MsixPackage.ps1` 负责组装暂存目录、调用 `makepri` / `makeappx` / `signtool` 并签名；包源在 `msix/`（清单、`PackageAssets`、资源字符串）。产物在 `release\`，上传到 Partner Center 的「管理程序包」。
 
-```powershell
-.\tools\New-MsixPackage.ps1 -Version "0.1.1.0"
-```
+`tauri.conf.json` 的 `bundle.targets` 因此保持为空：Tauri v2 不支持 MSIX，本项目也不使用 NSIS/MSI 打包器。
 
-MSIX 版本必须与当前应用版本一致。产物在 `msix\build\`，上传到 Partner Center 的「管理程序包」。
-
-脚本手工组装暂存目录并调用 `makepri` / `makeappx` / `signtool`，而不用 `winapp package`：
-winapp 生成的 `priconfig.xml` 用一份只列 `Assets\` 的清单限定索引范围，会丢掉 `Strings\` 里的
+脚本手工组装暂存目录而不用 `winapp package`：
+winapp 生成的 `priconfig.xml` 用一份只列素材目录的清单限定索引范围，会丢掉 `Strings\` 里的
 逐语言候选，`ms-resource:AppName` 因此解析不到东西，开始菜单回退成包标识符。
 
 ## 技术栈
@@ -156,10 +169,16 @@ winapp 生成的 `priconfig.xml` 用一份只列 `Assets\` 的清单限定索引
 ### 素材
 
 截图分中英两套（`assets/Screenshot-0?-*-zh.png` / `-en.png`），上传到对应语言的 listing，
-两套不能混用。其余图标的归属看目录：`assets/` 上传商店，`msix/Assets/` 打进包，
+两套不能混用。`assets/` 还放商店 listing 专用图，不打进包；`msix/PackageAssets/` 打进包；
 `src-tauri/icons/` 是 Tauri 应用图标（`icon.ico` 编译进 exe 决定窗口与任务栏图标）。
 
-全部素材由 `tools/New-StoreAssets.ps1` 从 `src-tauri/icons/icon-1024.png` 生成，
+图标的唯一来源是 `branding/app-icon-1024.png`（矢量稿 `branding/app-icon.svg`）。改图后运行：
+
+```powershell
+.\tools\assets\Sync-Branding.ps1
+```
+
+会重新生成 `src-tauri/icons/`、`msix/PackageAssets/` 和 `assets/Square300x300Logo.png`。
 `Square310x310Logo.png` 是唯一同时用于包和 listing 的尺寸。
 
 ### 文案

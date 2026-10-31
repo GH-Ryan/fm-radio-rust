@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-call "%~dp0Setup-Msvc.cmd"
+call "%~dp0build\Setup-Msvc.cmd"
 if errorlevel 1 (
   exit /b 1
 )

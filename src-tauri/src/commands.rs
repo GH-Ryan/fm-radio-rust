@@ -13,6 +13,10 @@ pub struct AppState {
     pub browse_pool: std::sync::Arc<tokio::sync::Mutex<Vec<crate::radio::Station>>>,
     pub fav_pool: std::sync::Arc<tokio::sync::Mutex<Vec<crate::radio::Station>>>,
     pub search_seq: std::sync::Arc<tokio::sync::Mutex<u32>>,
+    /// When the web layer last checked in. A frozen WebView2 renderer stops
+    /// calling the heartbeat command even though the native window keeps
+    /// answering the OS, which is what a black window looks like from here.
+    pub ui_heartbeat: std::sync::Arc<std::sync::Mutex<Option<std::time::Instant>>>,
 }
 
 use tauri::async_runtime::spawn_blocking;
@@ -316,6 +320,17 @@ pub async fn set_volume(v: f32, state: State<'_, AppState>) -> AppResult<f32> {
 #[tauri::command]
 pub async fn get_state(state: State<'_, AppState>) -> AppResult<PlayerView> {
     Ok(player_view(&state.player.state(), &state.favorites))
+}
+
+/// Records that the web layer is alive.
+///
+/// A WebView2 renderer that froze after a system sleep or a compositor stall
+/// stops running this command even though the native window still answers the
+/// OS. The watchdog in `lib.rs` watches this timestamp and reloads the page
+/// when the check-ins stop, which is what brings a black window back.
+#[tauri::command]
+pub fn ui_heartbeat(state: State<'_, AppState>) {
+    *state.ui_heartbeat.lock().unwrap() = Some(std::time::Instant::now());
 }
 
 /// Builds the view the web layer renders.

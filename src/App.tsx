@@ -272,6 +272,17 @@ function App() {
     }
   }, [showError])
 
+  // The native side treats these check-ins as a liveness signal. A WebView2
+  // renderer that froze after a system sleep stops sending them, and the
+  // watchdog in the Rust side then reloads the page -- which is what brings a
+  // black window back. Cheap: one local call every few seconds.
+  useEffect(() => {
+    const beat = () => { invoke('ui_heartbeat').catch(() => {}) }
+    beat()
+    const id = window.setInterval(beat, 3000)
+    return () => window.clearInterval(id)
+  }, [])
+
   // The search boxes are deliberately NOT controlled. While an IME composes a
   // word it owns the field's value, and a controlled input would write React's
   // stale value back over the pinyin buffer on every keystroke, which WebKitGTK

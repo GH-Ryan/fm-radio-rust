@@ -22,7 +22,7 @@ param(
 # ANSI unless it carries a BOM.
 #
 # Usage:
-#   powershell -File tools/New-OpaqueIco.ps1 -Source icons\icon-1024.png -OutFile icons\icon.ico
+#   powershell -File tools/assets/New-OpaqueIco.ps1 -Source branding\app-icon-1024.png -OutFile src-tauri\icons\icon.ico
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing

@@ -12,8 +12,9 @@
   alone produces usable strings.
 
   Indexing starts at the project root rather than at a pri.resfiles manifest.
-  winapp generates that manifest listing only Assets\, and a list-driven index
-  loses the per-language candidates: every resource collapses to the config's
+  winapp generates that manifest listing only the asset directory, and a
+  list-driven index loses the per-language candidates: every resource collapses
+  to the config's
   default language and the other translations are silently dropped.
 
   There is deliberately no <packaging> element. autoResourcePackage makes

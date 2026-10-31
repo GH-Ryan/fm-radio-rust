@@ -33,7 +33,7 @@ param(
 # ANSI unless it carries a BOM.
 #
 # Usage:
-#   powershell -File tools/New-StoreAssets.ps1 -Source src-tauri\icons\icon-1024.png -OutDir msix\Assets
+#   powershell -File tools/assets/New-StoreAssets.ps1 -Source branding\app-icon-1024.png -OutDir msix\PackageAssets
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing

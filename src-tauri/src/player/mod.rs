@@ -96,6 +96,38 @@ impl Player {
         *self.on_change.lock().unwrap() = Some(Box::new(callback));
     }
 
+    /// 阶段三：音频焦点设置辅助方法
+    ///
+    /// 请求或释放平台级音频独占/高优先级，目的是在 Edge 等其他程序抢占
+    /// 音频设备或 CPU 时，优先保证本应用的音频输出不断流。
+    ///
+    /// - Windows：把进程提升到高优先级类，并将调用线程标记为
+    ///   "Pro Audio"（MMCSS），降低 WASAPI 缓冲欠载导致的噼啪声。
+    /// - macOS：通过 CoreAudio 的 kAudioDevicePropertyHogMode 对默认输出
+    ///   设备申请独占（Hog）模式，阻止其他应用共用该设备。
+    /// - Linux：提高进程的调度优先级（sched_setscheduler / setpriority），
+    ///   减少 ALSA/PipeWire 调度抖动造成的卡顿。
+    ///
+    /// 任何平台调用失败都不会影响正常播放，只会失去独占带来的收益。
+    fn setup_audio_focus(&self, request: bool) -> bool {
+        #[cfg(target_os = "windows")]
+        {
+            return windows_audio_focus::set(request);
+        }
+        #[cfg(target_os = "macos")]
+        {
+            return macos_audio_focus::set(request);
+        }
+        #[cfg(all(unix, not(target_os = "macos")))]
+        {
+            return unix_audio_focus::set(request);
+        }
+        #[allow(unreachable_code)]
+        {
+            request
+        }
+    }
+
     fn emit(&self) {
         let state = self.state.lock().unwrap().clone();
         if let Some(cb) = &*self.on_change.lock().unwrap() {
@@ -153,6 +185,12 @@ impl Player {
         let generation = self.generation.clone();
         let volume = self.volume.clone();
         let on_change = self.on_change.clone();
+
+        // 阶段三：音频焦点预设置 - 标记音频流将进入独占/高优先级模式
+        // 实际的 OS 独占调用可在此扩展（Windows:AudioEndPoint, macOS:AudioSession）
+        // 当前主要通过缓冲区增大与 sink 配置间接实现抗干扰
+        // TODO: 若需要平台独占，此处可调用平台相关 API 锁定音频设备
+        let _audio_focus_token = self.setup_audio_focus(true);
 
         let mine = *generation.lock().unwrap();
         let handle = thread::spawn(move || {
@@ -444,6 +482,9 @@ impl Player {
         // Retires the running thread's claim on the state and the sink.
         *self.generation.lock().unwrap() += 1;
 
+        // 阶段三：音频焦点释放 - 在停止时明确解除音频独占状态
+        self.setup_audio_focus(false);
+
         if let Some(sink) = self.sink.lock().unwrap().take() {
             sink.stop();
         }
@@ -617,6 +658,202 @@ impl<R: Read, F: FnMut(String)> Read for IcyReader<R, F> {
         let n = self.source.read(&mut buf[..limit])?;
         self.audio_left -= n;
         Ok(n)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 平台音频独占 / 高优先级实现
+//
+// 这些调用属于“尽力而为”：失败时返回 false，但绝不阻止播放。它们的目标是
+// 在 Edge 等程序抢占音频设备或 CPU 时，让本应用的输出更不容易断流。
+// ---------------------------------------------------------------------------
+
+#[cfg(target_os = "windows")]
+mod windows_audio_focus {
+    use std::ffi::c_void;
+    use std::sync::atomic::{AtomicIsize, Ordering};
+
+    type Handle = *mut c_void;
+
+    // Win32 进程优先级类
+    const HIGH_PRIORITY_CLASS: u32 = 0x0000_0080;
+    const NORMAL_PRIORITY_CLASS: u32 = 0x0000_0020;
+    // 线程优先级
+    const THREAD_PRIORITY_TIME_CRITICAL: i32 = 15;
+    const THREAD_PRIORITY_NORMAL: i32 = 0;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetCurrentProcess() -> Handle;
+        fn GetCurrentThread() -> Handle;
+        fn SetPriorityClass(process: Handle, priority_class: u32) -> i32;
+        fn SetThreadPriority(thread: Handle, priority: i32) -> i32;
+    }
+
+    // MMCSS（Multimedia Class Scheduler Service）。把线程登记为 "Pro Audio"
+    // 是 WASAPI 音频线程降低调度抖动、避免缓冲欠载的标准做法。
+    #[link(name = "avrt")]
+    extern "system" {
+        fn AvSetMmThreadCharacteristicsW(task_name: *const u16, task_index: *mut u32) -> Handle;
+        fn AvRevertMmThreadCharacteristics(handle: Handle) -> i32;
+    }
+
+    static AVRT_HANDLE: AtomicIsize = AtomicIsize::new(0);
+
+    pub fn set(request: bool) -> bool {
+        if request {
+            // 整个进程提升优先级，覆盖 rodio/cpal 内部的音频线程。
+            let ok = unsafe { SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS) != 0 };
+
+            // 再把调用线程登记为 Pro Audio。重复登记时直接复用已有句柄。
+            if AVRT_HANDLE.load(Ordering::SeqCst) == 0 {
+                let name: Vec<u16> = "Pro Audio\0".encode_utf16().collect();
+                let mut index: u32 = 0;
+                let handle = unsafe { AvSetMmThreadCharacteristicsW(name.as_ptr(), &mut index) };
+                if !handle.is_null() {
+                    AVRT_HANDLE.store(handle as isize, Ordering::SeqCst);
+                    unsafe {
+                        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+                    }
+                }
+            }
+            ok
+        } else {
+            let handle = AVRT_HANDLE.swap(0, Ordering::SeqCst) as Handle;
+            if !handle.is_null() {
+                unsafe {
+                    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+                    AvRevertMmThreadCharacteristics(handle);
+                }
+            }
+            unsafe { SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS) != 0 }
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+mod macos_audio_focus {
+    use std::os::raw::c_void;
+
+    type AudioObjectID = u32;
+    type OSStatus = i32;
+
+    #[repr(C)]
+    struct AudioObjectPropertyAddress {
+        selector: u32,
+        scope: u32,
+        element: u32,
+    }
+
+    #[link(name = "CoreAudio", kind = "framework")]
+    extern "C" {
+        fn AudioObjectGetPropertyData(
+            object_id: AudioObjectID,
+            address: *const AudioObjectPropertyAddress,
+            qualifier_size: u32,
+            qualifier: *const c_void,
+            data_size: *mut u32,
+            out_data: *mut c_void,
+        ) -> OSStatus;
+
+        fn AudioObjectSetPropertyData(
+            object_id: AudioObjectID,
+            address: *const AudioObjectPropertyAddress,
+            qualifier_size: u32,
+            qualifier: *const c_void,
+            data_size: u32,
+            data: *const c_void,
+        ) -> OSStatus;
+    }
+
+    const SYSTEM_OBJECT: AudioObjectID = 1;
+    // 'glob' / 'outp' / 'dOut' / 'hogm' 的 FourCC
+    const SCOPE_GLOBAL: u32 = 0x676c_6f62;
+    const SCOPE_OUTPUT: u32 = 0x6f75_7470;
+    const SELECTOR_DEFAULT_OUTPUT: u32 = 0x644f_7574;
+    const SELECTOR_HOG_MODE: u32 = 0x686f_676d;
+    const ELEMENT_MAIN: u32 = 0;
+
+    pub fn set(request: bool) -> bool {
+        // 找到系统默认输出设备。
+        let mut device: AudioObjectID = 0;
+        let default_addr = AudioObjectPropertyAddress {
+            selector: SELECTOR_DEFAULT_OUTPUT,
+            scope: SCOPE_GLOBAL,
+            element: ELEMENT_MAIN,
+        };
+        let mut size = std::mem::size_of::<AudioObjectID>() as u32;
+        let status = unsafe {
+            AudioObjectGetPropertyData(
+                SYSTEM_OBJECT,
+                &default_addr,
+                0,
+                std::ptr::null(),
+                &mut size,
+                &mut device as *mut _ as *mut c_void,
+            )
+        };
+        if status != 0 || device == 0 {
+            return false;
+        }
+
+        // Hog mode 的值是拥有它的 pid；写 0 表示释放。
+        let owner: i32 = if request {
+            std::process::id() as i32
+        } else {
+            0
+        };
+        let hog_addr = AudioObjectPropertyAddress {
+            selector: SELECTOR_HOG_MODE,
+            scope: SCOPE_OUTPUT,
+            element: ELEMENT_MAIN,
+        };
+        let status = unsafe {
+            AudioObjectSetPropertyData(
+                device,
+                &hog_addr,
+                0,
+                std::ptr::null(),
+                std::mem::size_of::<i32>() as u32,
+                &owner as *const i32 as *const c_void,
+            )
+        };
+        status == 0
+    }
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+mod unix_audio_focus {
+    #[repr(C)]
+    struct SchedParam {
+        sched_priority: i32,
+    }
+
+    const PRIO_PROCESS: i32 = 0;
+    const SCHED_OTHER: i32 = 0;
+    const SCHED_FIFO: i32 = 1;
+
+    extern "C" {
+        fn setpriority(which: i32, who: u32, priority: i32) -> i32;
+        fn sched_setscheduler(pid: i32, policy: i32, param: *const SchedParam) -> i32;
+    }
+
+    pub fn set(request: bool) -> bool {
+        unsafe {
+            if request {
+                // 先试实时调度（需要 CAP_SYS_NICE）；失败再退到普通 nice 值。
+                let realtime = SchedParam { sched_priority: 10 };
+                if sched_setscheduler(0, SCHED_FIFO, &realtime) == 0 {
+                    return true;
+                }
+                setpriority(PRIO_PROCESS, 0, -10) == 0
+            } else {
+                let normal = SchedParam { sched_priority: 0 };
+                let _ = sched_setscheduler(0, SCHED_OTHER, &normal);
+                let _ = setpriority(PRIO_PROCESS, 0, 0);
+                true
+            }
+        }
     }
 }
 

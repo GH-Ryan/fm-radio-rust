@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "FM 电台",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "identifier": "com.fmradio.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -20,7 +20,7 @@
         "decorations": false,
         "backgroundColor": "#0e0f13",
         "label": "main",
-        "additionalBrowserArgs": "--disable-gpu --disable-gpu-compositing --disable-features=WebGPU,Vulkan"
+        "additionalBrowserArgs": "--disable-gpu --disable-gpu-compositing --disable-features=WebGPU,Vulkan,CalculateNativeWinOcclusion --autoplay-policy=no-user-gesture-required --disable-smooth-scrolling --disable-midnight-tap-handling --process-per-site --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling"
       }
     ],
     "security": {
@@ -29,7 +29,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [],
     "publisher": "Ray Digital",
     "icon": [
       "icons/32x32.png",
