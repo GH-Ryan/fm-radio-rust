@@ -28,6 +28,9 @@ $releaseVersion = (Get-Content $versionPath -Raw).Trim()
 if ($releaseVersion -notmatch '^\d+\.\d+\.\d+\.\d+$') {
   Stop-Release "VERSION '$releaseVersion' must use four numeric parts."
 }
+if (($releaseVersion -split '\.')[3] -ne '0') {
+  Stop-Release "VERSION '$releaseVersion' has a non-zero revision; the Store requires the fourth part to be 0. Bump the third part instead."
+}
 $appVersion = ($releaseVersion -split '\.')[0..2] -join '.'
 
 $package = Get-Content (Join-Path $Root 'package.json') -Raw | ConvertFrom-Json

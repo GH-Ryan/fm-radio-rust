@@ -21,6 +21,14 @@ Set-Location $root
 
 $appVersion = ($Version -split '\.')[0..2] -join '.'
 
+# The Store rejects a package whose revision (the fourth part) is not zero:
+# "Apps are not allowed to have a Version with a revision number other than
+# zero". Every Store submission therefore increments the third part and keeps
+# the revision at 0, for example 0.1.2.0 -> 0.1.3.0.
+if (($Version -split '\.')[3] -ne '0') {
+  throw 'The Store requires the MSIX revision (the fourth part) to be 0. Bump the third part instead, for example 0.1.3.0.'
+}
+
 # Source of truth.
 [IO.File]::WriteAllText(
   (Join-Path $root 'VERSION'),
