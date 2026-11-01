@@ -1,7 +1,7 @@
 import { PlayerView } from '../types'
 import { StationArt } from './StationArt'
 import { useI18n } from '../i18n/useI18n'
-import { backendStatusText } from '../i18n'
+import { backendStatusText, translateBackendError } from '../i18n'
 
 interface PlayerBarProps {
   player: PlayerView | null
@@ -16,7 +16,7 @@ interface PlayerBarProps {
 }
 
 export function PlayerBar({ player, onPlayPause, onStop, onVolumeChange, isMuted, onToggleMute, onToggleFavorite, onPlayRandomBrowse, onPlayRandomFavorites }: PlayerBarProps) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
 
   if (!player) return null
 
@@ -34,7 +34,7 @@ export function PlayerBar({ player, onPlayPause, onStop, onVolumeChange, isMuted
           <circle cx="12" cy="12" r="9" />
           <path d="M12 8v5M12 16.5v.5" />
         </svg>
-        <span>{player.error}</span>
+        <span>{translateBackendError(locale, player.error.code, player.error.message, player.error.detail)}</span>
       </div>
     )}
     <footer className="player-bar" role="region" aria-label={t('playerRegionLabel')}>

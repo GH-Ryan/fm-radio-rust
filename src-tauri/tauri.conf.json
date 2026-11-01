@@ -20,7 +20,7 @@
         "decorations": false,
         "backgroundColor": "#0e0f13",
         "label": "main",
-        "additionalBrowserArgs": "--disable-gpu --disable-gpu-compositing --disable-features=WebGPU,Vulkan,CalculateNativeWinOcclusion --autoplay-policy=no-user-gesture-required --disable-smooth-scrolling --disable-midnight-tap-handling --process-per-site --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling"
+        "additionalBrowserArgs": "--disable-gpu --disable-gpu-compositing --disable-features=WebGPU,Vulkan,CalculateNativeWinOcclusion,IntensiveWakeUpThrottling --autoplay-policy=no-user-gesture-required --disable-smooth-scrolling --disable-midnight-tap-handling --process-per-site --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling"
       }
     ],
     "security": {

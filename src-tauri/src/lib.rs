@@ -87,6 +87,77 @@ fn resume_after_wake(player: Arc<Player>) {
     }
 }
 
+/// Seconds since the last keyboard or mouse input.
+///
+/// The watchdog uses this to tell a wedged renderer from a display that simply
+/// turned off while the user was away: reloading at that moment runs against a
+/// sleeping compositor, so the repair waits for the user to come back.
+#[cfg(target_os = "windows")]
+fn user_idle_seconds() -> u64 {
+    #[repr(C)]
+    struct LastInputInfo {
+        cb_size: u32,
+        dw_time: u32,
+    }
+
+    #[link(name = "user32")]
+    extern "system" {
+        fn GetLastInputInfo(info: *mut LastInputInfo) -> i32;
+    }
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetTickCount() -> u32;
+    }
+
+    let mut info = LastInputInfo {
+        cb_size: std::mem::size_of::<LastInputInfo>() as u32,
+        dw_time: 0,
+    };
+    let ok = unsafe { GetLastInputInfo(&mut info) };
+    if ok == 0 {
+        return 0;
+    }
+    let now = unsafe { GetTickCount() };
+    (now.wrapping_sub(info.dw_time) / 1000) as u64
+}
+
+#[cfg(not(target_os = "windows"))]
+fn user_idle_seconds() -> u64 {
+    0
+}
+
+/// Keeps the display (and the machine) awake while audio is playing.
+///
+/// The black window is triggered by the display turning off: Chromium then
+/// freezes the page and does not repaint when the screen comes back. Holding an
+/// execution-state request while the window is visible and playing removes that
+/// trigger. It is released as soon as playback stops or the window is
+/// minimised, so the screen is not pinned on for a radio left in the background.
+#[cfg(target_os = "windows")]
+fn set_display_awake(awake: bool) {
+    const ES_CONTINUOUS: u32 = 0x8000_0000;
+    const ES_SYSTEM_REQUIRED: u32 = 0x0000_0001;
+    const ES_DISPLAY_REQUIRED: u32 = 0x0000_0002;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn SetThreadExecutionState(flags: u32) -> u32;
+    }
+
+    let flags = if awake {
+        ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED
+    } else {
+        ES_CONTINUOUS
+    };
+    unsafe {
+        SetThreadExecutionState(flags);
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn set_display_awake(_awake: bool) {}
+
 /// Starts the application.
 ///
 /// The binary target is a shim that calls this. Keeping the wiring here rather
@@ -134,17 +205,21 @@ pub fn run() {
                 }
             });
 
-            // WebView2 can stop painting after the machine wakes from sleep, or
-            // after its compositor decides the window is occluded: the native
-            // window keeps answering the OS, but the page is gone and only the
-            // window background is left, which reads as a black window. Two
-            // signals catch that here, and a reload is the way back:
+            // WebView2 can stop painting after the machine wakes from sleep,
+            // after the display turns off, or after its compositor decides the
+            // window is occluded: the native window keeps answering the OS, but
+            // the page is gone and only the window background is left, which
+            // reads as a black window. Three signals catch that here:
             //
             // - A five-second tick that wakes up far later than it asked means
-            //   the machine was suspended. This is the case actually observed:
-            //   the app was black only after a five-hour sleep.
+            //   the machine was suspended.
             // - The web layer checks in every few seconds; check-ins that stop
-            //   while the window is on screen catch a wedged renderer.
+            //   catch a wedged renderer.
+            // - Input that resumes after the user was away is the moment to
+            //   repair a page that froze while the display was off. Reloading
+            //   while the display is still off runs against a sleeping
+            //   compositor and does not stick, so a stale page is left alone
+            //   until the user comes back.
             let heartbeat = app.state::<AppState>().ui_heartbeat.clone();
             let player_for_wake = app.state::<AppState>().player.clone();
             let watchdog = app.handle().clone();
@@ -152,19 +227,72 @@ pub fn run() {
                 watchdog_log("watchdog started");
                 let mut last_reload: Option<std::time::Instant> = None;
                 let mut last_tick = std::time::Instant::now();
+                let mut waiting_for_user = false;
+                let mut display_awake = false;
                 loop {
                     std::thread::sleep(std::time::Duration::from_secs(5));
                     let now = std::time::Instant::now();
                     let gap = now.duration_since(last_tick);
                     last_tick = now;
 
+                    let idle = user_idle_seconds();
+                    let away = idle >= 20;
                     let resumed_from_sleep = gap > std::time::Duration::from_secs(30);
                     let heartbeat_stale = heartbeat
                         .lock()
                         .unwrap()
                         .is_some_and(|t| t.elapsed() > std::time::Duration::from_secs(40));
-                    if !resumed_from_sleep && !heartbeat_stale {
-                        continue;
+
+                    // Hold the display on only while the window is visible and
+                    // audio is actually running. Releasing it when minimised
+                    // keeps a radio left in the background from pinning the
+                    // screen on.
+                    let playing = {
+                        let state = player_for_wake.state();
+                        state.playing && !state.paused
+                    };
+                    let visible = watchdog
+                        .get_webview_window("main")
+                        .map(|window| !window.is_minimized().unwrap_or(false))
+                        .unwrap_or(false);
+                    let want_awake = playing && visible;
+                    if want_awake != display_awake {
+                        set_display_awake(want_awake);
+                        display_awake = want_awake;
+                        watchdog_log(if want_awake {
+                            "display kept awake while playing"
+                        } else {
+                            "display sleep allowed"
+                        });
+                    }
+
+                    if !resumed_from_sleep {
+                        if heartbeat_stale && away {
+                            if !waiting_for_user {
+                                watchdog_log(&format!(
+                                    "web layer stale while user is away (idle {idle}s); waiting for return"
+                                ));
+                                waiting_for_user = true;
+                            }
+                            continue;
+                        }
+                        if waiting_for_user {
+                            waiting_for_user = false;
+                            watchdog_log("user is back; checking the page");
+                            // A renderer that was only throttled may resume on
+                            // its own within a moment, which is better than a
+                            // reload that throws the interface away.
+                            std::thread::sleep(std::time::Duration::from_millis(800));
+                            let fresh = heartbeat
+                                .lock()
+                                .unwrap()
+                                .is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(10));
+                            if fresh {
+                                continue;
+                            }
+                        } else if !heartbeat_stale {
+                            continue;
+                        }
                     }
 
                     let Some(window) = watchdog.get_webview_window("main") else {
@@ -196,17 +324,25 @@ pub fn run() {
                             gap.as_secs()
                         ));
                     } else {
-                        watchdog_log("web layer stopped checking in, reloading");
+                        watchdog_log(&format!(
+                            "web layer stopped checking in (idle {idle}s); reloading"
+                        ));
                     }
 
-                    // Reloading recreates the page. Hiding and showing the
-                    // window first also forces WebView2 to reattach its
-                    // compositor, which a bare reload does not always do after
-                    // a resume. The show brings the window back exactly where
-                    // it was; it is not a new window.
-                    let _ = window.hide();
+                    // Reattach the compositor before reloading. Hiding the
+                    // window is deliberately not done: a hidden WebView2 can
+                    // come back without a surface, which leaves exactly the
+                    // black window this is meant to repair. A one-pixel resize
+                    // forces a new frame without moving the window.
                     let _ = window.show();
-                    let _ = window.reload();
+                    let _ = window.set_focus();
+                    if let Ok(size) = window.inner_size() {
+                        let _ = window.set_size(tauri::PhysicalSize::new(size.width + 1, size.height));
+                        std::thread::sleep(std::time::Duration::from_millis(120));
+                        let _ = window.set_size(tauri::PhysicalSize::new(size.width, size.height));
+                    }
+                    let reloaded = window.reload();
+                    watchdog_log(&format!("reload issued (result: {reloaded:?})"));
 
                     last_reload = Some(std::time::Instant::now());
                     // Give the new page a moment to boot before the watchdog

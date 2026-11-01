@@ -33,7 +33,7 @@ export interface PlayerView {
   title: string
   backend: string
   sampleRate: number | null
-  error: string | null
+  error: AppError | null
   errorSticky: boolean
   volume: number
   station: StationView | null
